@@ -46,7 +46,7 @@ typedef struct {
   signed long int latt;
   signed long int longi;
   int alt;
-  int tStamp;
+  signed long int tStamp;
   int speedMps;
   int heading;
   int numSat;
@@ -148,19 +148,24 @@ void Task1code( void * pvParameters ) {
       //    Transmit data to ground
       //Serial.printf("RFPacket:      imuData.accX: %d    GPSData.latt: %d   baroData.altiutude: %d\n", packet.imuData.accX, packet.GPSData.latt, packet.baroData.altitude);
 
-      byte imuDataPacket[12];
-      imuDataPacket[0] = highByte(imuData.accX);
-      imuDataPacket[1] = lowByte(imuData.accX);
-      imuDataPacket[2] = highByte(imuData.accY);
-      imuDataPacket[3] = lowByte(imuData.accY);
-      imuDataPacket[4] = highByte(imuData.accZ);
-      imuDataPacket[5] = lowByte(imuData.accZ);
-      imuDataPacket[6] = highByte(imuData.gyroX);
-      imuDataPacket[7] = lowByte(imuData.gyroX);
-      imuDataPacket[8] = highByte(imuData.gyroY);
-      imuDataPacket[9] = lowByte(imuData.gyroY);
-      imuDataPacket[10] = highByte(imuData.gyroZ);
-      imuDataPacket[11] = lowByte(imuData.gyroZ);
+      byte imuDataPacket[16];
+      uint32_t tNow = millis();
+      imuDataPacket[0] = byte(tNow >> 24);
+      imuDataPacket[1] = byte(tNow >> 16);
+      imuDataPacket[2] = byte(tNow >> 8);
+      imuDataPacket[3] = byte(tNow);
+      imuDataPacket[4] = highByte(imuData.accX);
+      imuDataPacket[5] = lowByte(imuData.accX);
+      imuDataPacket[6] = highByte(imuData.accY);
+      imuDataPacket[7] = lowByte(imuData.accY);
+      imuDataPacket[8] = highByte(imuData.accZ);
+      imuDataPacket[9] = lowByte(imuData.accZ);
+      imuDataPacket[10] = highByte(imuData.gyroX);
+      imuDataPacket[11] = lowByte(imuData.gyroX);
+      imuDataPacket[12] = highByte(imuData.gyroY);
+      imuDataPacket[13] = lowByte(imuData.gyroY);
+      imuDataPacket[14] = highByte(imuData.gyroZ);
+      imuDataPacket[15] = lowByte(imuData.gyroZ);
       LoRa.beginPacket();
       LoRa.write(0x5);
       //LoRa.write(imuDataPacket);
@@ -179,7 +184,7 @@ void Task1code( void * pvParameters ) {
       }
 
       if (newGPSData) {
-        byte GPSDataPacket[17];
+        byte GPSDataPacket[19];
         GPSDataPacket[0] = byte(GPSData.latt >> 24);
         GPSDataPacket[1] = byte(GPSData.latt >> 16);
         GPSDataPacket[2] = byte(GPSData.latt >> 8);
@@ -190,13 +195,15 @@ void Task1code( void * pvParameters ) {
         GPSDataPacket[7] = byte(GPSData.longi);
         GPSDataPacket[8] = highByte(GPSData.alt);
         GPSDataPacket[9] = lowByte(GPSData.alt);
-        GPSDataPacket[10] = highByte(GPSData.tStamp);
-        GPSDataPacket[11] = lowByte(GPSData.tStamp);
-        GPSDataPacket[12] = highByte(GPSData.speedMps);
-        GPSDataPacket[13] = lowByte(GPSData.speedMps);
-        GPSDataPacket[14] = highByte(GPSData.heading);
-        GPSDataPacket[15] = lowByte(GPSData.heading);
-        GPSDataPacket[16] = byte(GPSData.numSat);
+        GPSDataPacket[10] = byte(GPSData.tStamp >> 24);
+        GPSDataPacket[11] = byte(GPSData.tStamp >> 16);
+        GPSDataPacket[12] = byte(GPSData.tStamp >> 8);
+        GPSDataPacket[13] = byte(GPSData.tStamp);
+        GPSDataPacket[14] = highByte(GPSData.speedMps);
+        GPSDataPacket[15] = lowByte(GPSData.speedMps);
+        GPSDataPacket[16] = highByte(GPSData.heading);
+        GPSDataPacket[17] = lowByte(GPSData.heading);
+        GPSDataPacket[18] = byte(GPSData.numSat);
 
         LoRa.beginPacket();
         LoRa.write(0x4);
@@ -272,7 +279,7 @@ void Task2code( void * pvParameters ) {
   Serial2.end();                                                        // empty the input buffer, too
 
   Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);                  // use the new baud rate
-  Serial2.print( F("$PMTK220,100*2F\r\n") );                            // set 10Hz update rate
+  //Serial2.print( F("$PMTK220,100*2F\r\n") );                            // set 10Hz update rate
 
   //    This is the Core 2 main loop
   for (;;) {
@@ -283,13 +290,13 @@ void Task2code( void * pvParameters ) {
 
 
 
-      imuData.accX = acc.acceleration.x;
-      imuData.accY = acc.acceleration.y;
-      imuData.accZ = acc.acceleration.z;
+      imuData.accX = acc.acceleration.x * 100;
+      imuData.accY = acc.acceleration.y * 100;
+      imuData.accZ = acc.acceleration.z * 100;
 
-      imuData.gyroX = gyr.gyro.x;
-      imuData.gyroY = gyr.gyro.y;
-      imuData.gyroZ = gyr.gyro.z;
+      imuData.gyroX = gyr.gyro.x * 100;
+      imuData.gyroY = gyr.gyro.y * 100;
+      imuData.gyroZ = gyr.gyro.z * 100;
 
       dtostrf(millis(), 10, 0, a);                                         //  Convert to string
       dtostrf(((float)imuData.accX) / 100, 4, 2, b);
@@ -402,7 +409,7 @@ void Task2code( void * pvParameters ) {
         dtostrf(((float)GPSData.speedMps) / 100, 6, 2, sm);
         memset(GPSArray, 0, sizeof(GPS_Data));
         sprintf(GPSArray, "%s,%s,%s,%s,%s,%s,%s", lt, ln, al, ts, ns, hd, sm);    //  Convert to character array
-        //Serial.println(GPSArray);
+        Serial.println(GPSArray);
         GPSDataFile.println(GPSArray);
 
       }
