@@ -22,7 +22,7 @@ char imuArray[100];
 char GPSArray[120];
 char dirname[] = "/data000";
 
-
+int startTime = 0;
 
 bool launchProceedure = true;                                                               // If ESP32 reboots, it will recommence launch proceedure by default
 bool SDStatus = true;
@@ -33,22 +33,22 @@ bool newGPSData = false;
 bool newBaroData = false;
 
 typedef struct {
-  float accX;
-  float accY;
-  float accZ;
-  float gyroX;
-  float gyroY;
-  float gyroZ;
-  float tempC;
+  int accX;
+  int accY;
+  int accZ;
+  int gyroX;
+  int gyroY;
+  int gyroZ;
+  int tempC;
 } imu;
 
 typedef struct {
-  double latt;
-  double longi;
-  double alt;
-  double tStamp;
-  double speedMps;
-  double heading;
+  signed long int latt;
+  signed long int longi;
+  int alt;
+  int tStamp;
+  int speedMps;
+  int heading;
   int numSat;
 } GPS;
 
@@ -93,6 +93,7 @@ const int GPS_RX = 35;
 const int GPS_TX = 17;
 const int SERIAL1_RX = 34;
 const int SERIAL1_TX = 4;
+const int GPS_BAUD = 115200;
 
 void setup() {
 
@@ -146,25 +147,64 @@ void Task1code( void * pvParameters ) {
     while (launchProceedure) {
       //    Transmit data to ground
       //Serial.printf("RFPacket:      imuData.accX: %d    GPSData.latt: %d   baroData.altiutude: %d\n", packet.imuData.accX, packet.GPSData.latt, packet.baroData.altitude);
+
+      byte imuDataPacket[12];
+      imuDataPacket[0] = highByte(imuData.accX);
+      imuDataPacket[1] = lowByte(imuData.accX);
+      imuDataPacket[2] = highByte(imuData.accY);
+      imuDataPacket[3] = lowByte(imuData.accY);
+      imuDataPacket[4] = highByte(imuData.accZ);
+      imuDataPacket[5] = lowByte(imuData.accZ);
+      imuDataPacket[6] = highByte(imuData.gyroX);
+      imuDataPacket[7] = lowByte(imuData.gyroX);
+      imuDataPacket[8] = highByte(imuData.gyroY);
+      imuDataPacket[9] = lowByte(imuData.gyroY);
+      imuDataPacket[10] = highByte(imuData.gyroZ);
+      imuDataPacket[11] = lowByte(imuData.gyroZ);
       LoRa.beginPacket();
       LoRa.write(0x5);
-      LoRa.println(imuArray);
-      //LoRa.write((uint8_t*)&imuData, sizeof(imuData));
-      LoRa.endPacket(false);
-
-      LoRa.beginPacket();
-      LoRa.write(0x3);  
-      LoRa.println(RRC3_Data);// Send header byte
-      //LoRa.write((uint8_t*)&baroData, sizeof(baroData));
-      LoRa.endPacket(false);
-
-      LoRa.beginPacket();
-      LoRa.write(0x4);
-      LoRa.println(GPSArray);
-      LoRa.write((uint8_t*)&GPSData, sizeof(GPSData));
+      //LoRa.write(imuDataPacket);
+      for (int i = 0; i < sizeof(imuDataPacket); i++) {
+        LoRa.write(imuDataPacket[i]);
+      }
       LoRa.endPacket(false);
 
 
+      if (newBaroData) {
+        LoRa.beginPacket();
+        LoRa.write(0x3);
+        //LoRa.println(RRC3_Data);// Send header byte
+        //LoRa.write((uint8_t*)&baroData, sizeof(baroData));
+        LoRa.endPacket(false);
+      }
+
+      if (newGPSData) {
+        byte GPSDataPacket[17];
+        GPSDataPacket[0] = byte(GPSData.latt >> 24);
+        GPSDataPacket[1] = byte(GPSData.latt >> 16);
+        GPSDataPacket[2] = byte(GPSData.latt >> 8);
+        GPSDataPacket[3] = byte(GPSData.latt);
+        GPSDataPacket[4] = byte(GPSData.longi >> 24);
+        GPSDataPacket[5] = byte(GPSData.longi >> 16);
+        GPSDataPacket[6] = byte(GPSData.longi >> 8);
+        GPSDataPacket[7] = byte(GPSData.longi);
+        GPSDataPacket[8] = highByte(GPSData.alt);
+        GPSDataPacket[9] = lowByte(GPSData.alt);
+        GPSDataPacket[10] = highByte(GPSData.tStamp);
+        GPSDataPacket[11] = lowByte(GPSData.tStamp);
+        GPSDataPacket[12] = highByte(GPSData.speedMps);
+        GPSDataPacket[13] = lowByte(GPSData.speedMps);
+        GPSDataPacket[14] = highByte(GPSData.heading);
+        GPSDataPacket[15] = lowByte(GPSData.heading);
+        GPSDataPacket[16] = byte(GPSData.numSat);
+
+        LoRa.beginPacket();
+        LoRa.write(0x4);
+        for (int i = 0; i < sizeof(GPSDataPacket); i++) {
+          LoRa.write(GPSDataPacket[i]);
+        }
+        LoRa.endPacket(false);
+      }
       vTaskDelay(10);
     }
   }
@@ -225,6 +265,15 @@ void Task2code( void * pvParameters ) {
   mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
   mpu.setGyroRange(MPU6050_RANGE_1000_DEG);
 
+  //   Setup GPS
+  Serial2.print( F("$PMTK251,115200*1F\r\n") );                         // set 115200 baud rate
+  Serial2.flush();                                                      // wait for the command to go out
+  delay(100);                                                           // wait for the GPS device to change speeds
+  Serial2.end();                                                        // empty the input buffer, too
+
+  Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);                  // use the new baud rate
+  Serial2.print( F("$PMTK220,100*2F\r\n") );                            // set 10Hz update rate
+
   //    This is the Core 2 main loop
   for (;;) {
     while (launchProceedure) {
@@ -243,13 +292,13 @@ void Task2code( void * pvParameters ) {
       imuData.gyroZ = gyr.gyro.z;
 
       dtostrf(millis(), 10, 0, a);                                         //  Convert to string
-      dtostrf(imuData.accX, 4, 2, b);
-      dtostrf(imuData.accY, 4, 2, c);
-      dtostrf(imuData.accZ, 4, 2, d);
-      dtostrf(imuData.gyroX, 4, 2, e);
-      dtostrf(imuData.gyroY, 4, 2, f);
-      dtostrf(imuData.gyroZ, 4, 2, g);
-      dtostrf(imuData.tempC, 4, 2, h);
+      dtostrf(((float)imuData.accX) / 100, 4, 2, b);
+      dtostrf(((float)imuData.accY) / 100, 4, 2, c);
+      dtostrf(((float)imuData.accZ) / 100, 4, 2, d);
+      dtostrf(((float)imuData.gyroX) / 100, 4, 2, e);
+      dtostrf(((float)imuData.gyroY) / 100, 4, 2, f);
+      dtostrf(((float)imuData.gyroZ) / 100, 4, 2, g);
+      dtostrf(((float)imuData.tempC) / 100, 4, 2, h);
 
       sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
 
@@ -314,6 +363,7 @@ void Task2code( void * pvParameters ) {
         memset(buff, 0, sizeof(buff));
 
         // Write to SD card
+        memset(RRC3_Data, 0, sizeof(RRC3_Data));          //  Empty data array
         //Serial.println(RRC3_Data);
         baroFile.println(RRC3_Data);
       }
@@ -326,36 +376,38 @@ void Task2code( void * pvParameters ) {
           //Serial.print(b);
           if (gps.location.isValid()) {
             newGPSData = true;
-            GPSData.latt = gps.location.lat();
-            GPSData.longi = gps.location.lng();
+            GPSData.latt = gps.location.lat() * 1000000;
+            GPSData.longi = gps.location.lng() * 1000000;
             GPSData.alt = gps.altitude.meters();
             GPSData.tStamp = gps.time.value();
             GPSData.numSat = gps.satellites.value();
             GPSData.heading = gps.course.deg();
-            GPSData.speedMps = gps.speed.mps();
+            GPSData.speedMps = gps.speed.mps() * 100;
           }
         }
       }
 
-      if (newGPSData) {
-        
-        char lt[20], ln[20], al[20], ts[20], ns[20], hd[20], sm[20];      //  Initalise char container
-        dtostrf(GPSData.latt, 9, 5, lt);                                          //  Convert to string
-        dtostrf(GPSData.longi, 9, 5, ln);
-        dtostrf(GPSData.alt, 5, 2, al);
-        dtostrf(GPSData.tStamp, 10, 2, ts);
-        dtostrf(GPSData.numSat, 2, 0, ns);
-        dtostrf(GPSData.heading, 4, 2, hd);
-        dtostrf(GPSData.speedMps, 4, 2, sm);
+      // Update every 2Hz
 
+
+      if (millis() - startTime > 100 && newGPSData) {
+        startTime = millis();
+        char lt[20], ln[20], al[20], ts[20], ns[20], hd[20], sm[20];      //  Initalise char container
+        dtostrf(((float)GPSData.latt) / 1000000, 10, 6, lt);                                        //  Convert to string
+        dtostrf(((float)GPSData.longi) / 1000000, 10, 6, ln);
+        dtostrf(GPSData.alt, 5, 0, al);
+        dtostrf(GPSData.tStamp, 10, 0, ts);
+        dtostrf(GPSData.numSat, 2, 0, ns);
+        dtostrf(GPSData.heading, 4, 0, hd);
+        dtostrf(((float)GPSData.speedMps) / 100, 6, 2, sm);
+        memset(GPSArray, 0, sizeof(GPS_Data));
         sprintf(GPSArray, "%s,%s,%s,%s,%s,%s,%s", lt, ln, al, ts, ns, hd, sm);    //  Convert to character array
-        Serial.println(GPSArray);
+        //Serial.println(GPSArray);
         GPSDataFile.println(GPSArray);
 
-        memset(RRC3_Data, 0, sizeof(RRC3_Data));          //  Empty data arrays
-        memset(GPSArray, 0, sizeof(GPS_Data));
       }
       newGPSData = false;
+
       IMUDataFile.flush();
       baroFile.flush();
       GPSDataFile.flush();
@@ -377,8 +429,11 @@ void onReceive(int packetSize) {
     launchProceedure = true;
 
   }
-  else if (inByte = 2) {
+  else if (inByte == 2) {
     // Sensor status - Send array of bytes to reflect states
+  }
+  else if (inByte == 3) {
+    // Calibrate MPU-6050
   }
   else if (inByte == 0) {
     // Shut down sensor
@@ -386,6 +441,12 @@ void onReceive(int packetSize) {
   }
 
 }
+
+//  Function that initiates the buzzer
+//  If the rocket acceleration is below an average of 2g start buzzer
+//void buzzer {
+//
+//}
 
 void errorBlink(int scaleFactor) {
   digitalWrite(LEDPin, HIGH);
