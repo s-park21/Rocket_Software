@@ -44,6 +44,7 @@ typedef struct {
   int gyroY;
   int gyroZ;
   int tempC;
+  uint8_t chksum;
 } imu;
 
 typedef struct {
@@ -168,12 +169,19 @@ void Task1code( void * pvParameters ) {
   for (;;) {
     while (launchProceedure) {
       //    Transmit data to ground
-      byte checksum_send = 0;
+      uint8_t imuChecksum;
 
       LoRa.beginPacket();
       LoRa.write(0x5);
-      LoRa.write(imuUnion.imuByteArray, sizeof(imuUnion.imuByteArray));
-      //      LoRa.write(crc32_send);
+      imuChecksum = calculate_checksum((uint8_t*)&imuUnion.imuByteArray, sizeof(imuUnion.imuByteArray));
+      imuUnion.imuData.chksum = imuChecksum;
+      LoRa.write((uint8_t*)&imuUnion.imuByteArray, sizeof(imuUnion.imuByteArray));
+      Serial.println(imuChecksum, HEX);
+      for (int i=0; i<sizeof(imuUnion.imuByteArray); i++) {
+        Serial.print(" ");
+        Serial.print(imuUnion.imuByteArray[i], BIN);
+      }
+      Serial.println("");
       LoRa.endPacket(false);
 
 
@@ -182,19 +190,14 @@ void Task1code( void * pvParameters ) {
         LoRa.write(0x3);
         //LoRa.println(RRC3_Data);// Send header byte
         //LoRa.write((uint8_t*)&baroData, sizeof(baroData));
-        //        crc32_send = crc32.calc((uint8_t const*) imuUnion.imuByteArray, sizeof(imuUnion.imuByteArray));
         LoRa.endPacket(false);
         newBaroData = false;
       }
       if (sendGPS) {
+        byte GPSChecksum = 0;
         LoRa.beginPacket();
         LoRa.write(0x4);
         LoRa.write((uint8_t*)&GPSUnion.GPSByteArray, sizeof(GPSUnion.GPSByteArray));
-        for ( int i = 0; i < sizeof(GPSUnion.GPSByteArray); i++) 
-          checksum_send += GPSUnion.GPSByteArray[i];
-        checksum_send = (checksum_send ^ 0xFF);
-        checksum_send += checksum_send + 01;   
-        LoRa.write(checksum_send);
         LoRa.endPacket(false);
         sendGPS = false;
       }
@@ -297,7 +300,7 @@ void Task2code( void * pvParameters ) {
       sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
 
       //  Write imu data to SD
-      //Serial.println(imuArray);
+      Serial.println(imuArray);
       IMUDataFile.println(imuArray);
 
       // *************************************************************************  Barometer *********************************************************************************
@@ -449,4 +452,14 @@ void errorBlink(int scaleFactor) {
   delay(500 * scaleFactor);
   digitalWrite(LEDPin, LOW);
   delay(500 * scaleFactor);
+}
+
+uint8_t calculate_checksum(uint8_t packet[], size_t length) {
+  byte sum = 0;
+  for (int i = 0; i < length; i++) {
+    sum += packet[i];
+  }
+  sum = (sum^0xFF);
+  sum += sum+01;
+  return sum;
 }
