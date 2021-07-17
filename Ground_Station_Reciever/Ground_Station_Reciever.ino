@@ -1,6 +1,7 @@
 #include <SPI.h>
 #include <LoRa.h>
 
+
 void setup() {
   Serial.begin(9600);
   while (!Serial);
@@ -21,4 +22,12 @@ void loop() {
     }
     Serial.write("\r\n");
   }
+
+  if (Serial.available() > 0) {
+    byte readByte = Serial.parseInt();
+    Serial.println(readByte);
+    LoRa.beginPacket();
+    LoRa.write(readByte);
+    LoRa.endPacket(false);
+    }
 }

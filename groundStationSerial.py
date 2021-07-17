@@ -3,6 +3,7 @@ from struct import *
 import zlib
 import os.path
 from os import path
+import time
 
 COMPort = "COM16"
 serialPort = serial.Serial(port = COMPort, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
@@ -11,6 +12,11 @@ baroData=[]
 imuData=[]
 GPSData=[]
 header=0
+MSAltitude=0
+timeMs=0
+MSVelocity=0
+global totalMillis; global latt; global longi; global alt; global tStamp; global heading; global numSat; global checkSum
+global accX; global accY; global accZ; global gyroX; global gyroY; global gyroZ;  global tempC
 
 # Open log file
 os.chdir("FlightData")
@@ -24,22 +30,19 @@ while (path.exists(directory)):
 os.mkdir(directory)
 print("Writing data to: "+directory)
 
-imuFile = open("imu.csv", "w")
-GPSFile = open("GPS.csv", "w")
-baroFile = open("baro.csv", "w")
+imuFile = open(directory+"/imu.csv", "w")
+GPSFile = open(directory+"/GPS.csv", "w")
+RRC3File = open(directory+"/RRC3.csv", "w")
+baroFile = open(directory+"/baro.csv", "w")
 
-imuFile.write("totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC")
-GPSFile.write("latt, longi, alt, tStamp, speedMps, heading, numSat")
-
-
-
-
-f = open("demofile2.txt", "a")
-f.write("Now the file has more content!")
+imuFile.write("Time (ms), accX, accY, accZ, gyroX, gyroY, gyroZ, tempC\n")
+GPSFile.write("Time (ms), latt, longi, alt, tStamp, speedMps, heading, numSat\n")
+baroFile.write("Time (ms), Altitude (m), Pressure (Pa), Temperature (degC)\n")
 
 while(1):
     if(serialPort.in_waiting > 0):
-        while(serialPort.read(1) != b'\n'):
+        header = serialPort.read(1)
+        while(header != b'\n'):
             header = serialPort.read(1)
 
         header = serialPort.read(1)
@@ -51,44 +54,67 @@ while(1):
             print("Ground station LoRa failed to boot")
 
         elif(header == b'\x03'):
-            dataByte = serialPort.read(1)
-            while(dataByte != b'\r'):
-                baroData+=dataByte
-                dataByte = serialPort.read(1)
+            dataByte = serialPort.read(30)
 
-        elif(header == b'\x04'):
-            dataByte = serialPort.read(28)
-            latt, longi, alt, tStamp, speedMps, heading, numSat = unpack('lliLiii', dataByte)
-            latt = latt/1000000
-            longi = longi/1000000
-            speedMps = round(speedMps/100,2)
-            GPSString = latt,", ",longi,", ",alt,", ",tStamp,", ",heading,", ",numSat
-            GPSFile.write(GPSString)
+        elif(header == b'\x06'):
+            dataByte = serialPort.read(36)
+            # print(dataByte.hex())
+            checkSum_calculated = zlib.crc32(dataByte[0:32])
+            totalMillis, latt, longi, alt, tStamp, speedMps, heading, numSat, checkSum = unpack('LlliLiiiI', dataByte)
+            if (checkSum_calculated == checkSum):
+                latt = latt/1000000
+                longi = longi/1000000
+                speedMps = round(speedMps/100,2)
+                GPSString = str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(heading) + ", " + str(numSat) + "\n"
+                GPSFile.write(GPSString)
+                # print(str(GPSString))
+            else: 
+                print("GPS packet error") # Write to log file
+                # print(hex(checkSum_calculated), ", ",hex(checkSum))
 
             # print(latt, " ", longi, " ", alt)
-            # print(dataByte)
+            # print(dataByte.hex())
 
         elif(header== b'\x05'):
-            dataByte = serialPort.read(33)
-            # print(bin(dataByte))
-            checkSum_calculated = sum(dataByte[0:32])&0xFF
-            checkSum_calculated = (checkSum_calculated^0xFF)
-            checkSum_calculated = checkSum_calculated+1;
-            totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = unpack('LiiiiiiiB', dataByte) 
-            accX = round(accX/100,2)
-            accY = round(accX/100,2)
-            accZ = round(accX/100,2)
-            gyroX = round(gyroZ/100,2)
-            gyroY = round(gyroZ/100,2)
-            gyroZ = round(gyroZ/100,2)
-            # print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", hex(checkSum), hex(checkSum_calculated))
-            # byteString = b'\xa8\x84\xd\x00\xb4\x00\x00\x00\x00\x00\x00\x00\xd0\x02\x00\x00\xfb\xff\xff\xff\xff\xff\xff\xff\x01\x00\x00\x00\x00\x00\x00\x00\xad'
-            # arduiBytes = b'\xA8\x84\xD\x00\xB4\x00\x00\x00\x00\xFD\xFF\xFF\xFF\xC7\x02\x00\x00\xFB\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x01\x00\x00\x00\x00\x00\x00\x00\xAD 0 0 0
+            dataByte = serialPort.read(36)
+            # print(dataByte)
+            
+            checkSum_calculated = zlib.crc32(dataByte[0:32])
+            totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = unpack('LiiiiiiiI', dataByte) 
+            if (checkSum_calculated == checkSum):
+                accX = round(accX/100,2)
+                accY = round(accX/100,2)
+                accZ = round(accX/100,2)
+                gyroX = round(gyroZ/100,2)
+                gyroY = round(gyroZ/100,2)
+                gyroZ = round(gyroZ/100,2)
+                tempC = round(tempC/100,2)
+                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ)+str(tempC)+"\n"
+                imuFile.write(str(imuString))
+                # print(dataByte[8:12].hex(),", ",checkSum)
+                # print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
 
-#9C 98 1 0 AE 0 0 0 F9 FF FF FF D3 2 0 0 FB FF FF FF FF FF FF FF 1 0 0 0 0 0 0 0 DD 0 0 0
+                # Incoming packets appear to be correct therefore the problems with the imu data must be arising from the unpacking of the data            
 
-            recieved = 0xad
-            calculatefd = 0x4c
-            # print(hex(((sum(byteString[0:32])&0xFF)^0xFF) +1))
-            # print(hex(((sum(arduiBytes[0:32])&0xFF)^0xFF) +1))
-    
+            else: print("IMU packet error") # Write bad packets to log file
+
+        elif(header== b'\x04'):
+            # Barometer data
+            dataByte = serialPort.read(20)
+            checkSum_calculated = zlib.crc32(dataByte[0:16])
+            global MSPressure
+            global MSTempC
+            prevAlt = MSAltitude
+            totalMillis, MSAltitude, MSPressure, MSTempC, checkSum = unpack('LfffI', dataByte)
+            MSVelocity = round((MSAltitude-prevAlt)/(timeMs-time.time()*1000),2)
+            timeMs = time.time()*1000
+            if (checkSum == checkSum_calculated):
+                MSAltitude = round(MSAltitude,2)
+                MSPressure = round(MSPressure,0)
+                MSTempC = round(MSTempC,2)
+                baroFile.write(str(totalMillis) + ", " + str(MSAltitude) + ", " + str(MSPressure) + ", " + str(MSTempC)+"\n")
+                
+            else:
+                print("baro packet error")
+        
+        print("Altitude: "+str(MSAltitude)+"     Velocity: "+str(MSVelocity))

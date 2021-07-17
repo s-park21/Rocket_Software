@@ -1,0 +1,6 @@
+{
+    "configuration": "PSRAM=disabled,PartitionScheme=default,CPUFreq=240,FlashMode=qio,FlashFreq=80,FlashSize=4M,UploadSpeed=921600,DebugLevel=verbose",
+    "board": "esp32:esp32:esp32",
+    "port": "COM3",
+    "sketch": "L2_Flight_Computer_No_Classes.ino"
+}
