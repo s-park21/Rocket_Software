@@ -267,7 +267,7 @@ void Task1code( void * pvParameters ) {
       }
 
       byte GPStransmittBuffer[sizeof(GPSUnion.GPSByteArray)];
-      if (sendGPS) {
+      if (true /*sendGPS*/) {     // Allow resending of GPS packets so that missed packets can be resent
         //        Serial.println("Sending GPS data");
         if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
           for (int i = 0; i < sizeof(GPSUnion.GPSByteArray); i++) {             // Take semaphore and copy protected memory into temporary buffer

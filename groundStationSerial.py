@@ -35,9 +35,9 @@ GPSFile = open(directory+"/GPS.csv", "w")
 RRC3File = open(directory+"/RRC3.csv", "w")
 baroFile = open(directory+"/baro.csv", "w")
 
-imuFile.write("Time (ms), accX, accY, accZ, gyroX, gyroY, gyroZ, tempC\n")
-GPSFile.write("Time (ms), latt, longi, alt, tStamp, speedMps, heading, numSat\n")
-baroFile.write("Time (ms), Altitude (m), Pressure (Pa), Temperature (degC)\n")
+imuFile.write("Time (ms), accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, Packet Error\n")
+GPSFile.write("Time (ms), latt, longi, alt, tStamp, speedMps, heading, numSat, Packet Error\n")
+baroFile.write("Time (ms), Altitude (m), Pressure (Pa), Temperature (degC), Packet Error\n")
 
 while(1):
     if(serialPort.in_waiting > 0):
@@ -65,11 +65,13 @@ while(1):
                 latt = latt/1000000
                 longi = longi/1000000
                 speedMps = round(speedMps/100,2)
-                GPSString = str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(heading) + ", " + str(numSat) + "\n"
+                GPSString = str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(heading) + ", " + str(numSat) + ", 0\n"
                 GPSFile.write(GPSString)
-                # print(str(GPSString))
+                print(str(GPSString))
             else: 
                 print("GPS packet error") # Write to log file
+                GPSString = str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(heading) + ", " + str(numSat) + ", 1\n"
+                GPSFile.write(GPSString)
                 # print(hex(checkSum_calculated), ", ",hex(checkSum))
 
             # print(latt, " ", longi, " ", alt)
@@ -89,14 +91,17 @@ while(1):
                 gyroY = round(gyroZ/100,2)
                 gyroZ = round(gyroZ/100,2)
                 tempC = round(tempC/100,2)
-                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ)+str(tempC)+"\n"
+                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ)+str(tempC)+", 0\n"
                 imuFile.write(str(imuString))
                 # print(dataByte[8:12].hex(),", ",checkSum)
                 # print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
 
                 # Incoming packets appear to be correct therefore the problems with the imu data must be arising from the unpacking of the data            
 
-            else: print("IMU packet error") # Write bad packets to log file
+            else: 
+                print("IMU packet error") # Write bad packets to log file
+                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ)+str(tempC)+", 1\n"
+                imuFile.write(str(imuString))
 
         elif(header== b'\x04'):
             # Barometer data
@@ -112,9 +117,10 @@ while(1):
                 MSAltitude = round(MSAltitude,2)
                 MSPressure = round(MSPressure,0)
                 MSTempC = round(MSTempC,2)
-                baroFile.write(str(totalMillis) + ", " + str(MSAltitude) + ", " + str(MSPressure) + ", " + str(MSTempC)+"\n")
+                baroFile.write(str(totalMillis) + ", " + str(MSAltitude) + ", " + str(MSPressure) + ", " + str(MSTempC)+", 0\n")
                 
             else:
                 print("baro packet error")
+                baroFile.write(str(totalMillis) + ", " + str(MSAltitude) + ", " + str(MSPressure) + ", " + str(MSTempC)+", 1\n")
         
-        print("Altitude: "+str(MSAltitude)+"     Velocity: "+str(MSVelocity))
+        # print("Altitude: "+str(MSAltitude)+"     Velocity: "+str(MSVelocity))
