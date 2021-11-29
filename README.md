@@ -8,6 +8,10 @@ Laika Flight Computer (C++):
 - Class libraries (non-functional)
 - Laika Flight Computer (functional)
 
+Work to do:
+- Implement battery read library for undervoltage cutoff.
+- Implement buzzer driver.
+
 Ground station software (Python):
 - Graphical user interface (not complete)
 - Data collection software
