@@ -152,9 +152,9 @@ void setup() {
   pinMode(LEDPin, OUTPUT);
   Wire.begin();
   Serial2.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  Serial1.begin(9600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
+  xSemaphore = xSemaphoreCreateMutex();             // Create semaphore to protect data while writing  Serial1.begin(9600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
   pinMode(irqPin, INPUT);
-  xSemaphore = xSemaphoreCreateMutex();             // Create semaphore to protect data while writing
+  
 
   //create a task that will a executed in the Task1code() function, with priority 1 and executed on core 0
   xTaskCreatePinnedToCore(
@@ -248,10 +248,10 @@ void Task1code( void * pvParameters ) {
           MSBaroChecksum = crc32.calc((uint8_t*)&MStransmittBuffer, sizeof(MStransmittBuffer));
           LoRa.beginPacket();
           LoRa.write(0x4);
-          for (int i = 0; i < sizeof(MStransmittBuffer); i++) {
-            Serial.print(MStransmittBuffer[i], HEX);
-          }
-          Serial.println("");
+          // for (int i = 0; i < sizeof(MStransmittBuffer); i++) {
+          //   Serial.print(MStransmittBuffer[i], HEX);
+          // }
+          // Serial.println("");
 
           LoRa.write((uint8_t*)&MStransmittBuffer, sizeof(MStransmittBuffer));
           // Send 32bit CRC
