@@ -5,7 +5,7 @@ import os.path
 from os import path
 import time
 
-COMPort = "COM16"
+COMPort = "COM4"
 serialPort = serial.Serial(port = COMPort, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
 
 baroData=[]
@@ -42,10 +42,10 @@ baroFile.write("Time (ms), Altitude (m), Pressure (Pa), Temperature (degC), Pack
 while(1):
     if(serialPort.in_waiting > 0):
         header = serialPort.read(1)
-        while(header != b'\n'):
-            header = serialPort.read(1)
+        # while(header != b'\n'):
+        #     header = serialPort.read(1)
 
-        header = serialPort.read(1)
+        # header = serialPort.read(1)
 
         if(header == 0x44):
             print("Ground station booting")
@@ -81,6 +81,7 @@ while(1):
 
         elif(header== b'\x05'):
             dataByte = serialPort.read(36)
+
             # print(dataByte)
             
             checkSum_calculated = zlib.crc32(dataByte[0:32])
@@ -97,7 +98,7 @@ while(1):
                 imuFile.write(str(imuString))
                 imuFile.flush()
                 # print(dataByte[8:12].hex(),", ",checkSum)
-                # print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
+                print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
 
                 # Incoming packets appear to be correct therefore the problems with the imu data must be arising from the unpacking of the data            
 
@@ -127,4 +128,4 @@ while(1):
                 print("baro packet error")
                 baroFile.write(str(totalMillis) + ", " + str(MSAltitude) + ", " + str(MSPressure) + ", " + str(MSTempC)+", 1\n")
                 baroFile.flush()
-        # print("Altitude: "+str(MSAltitude)+"     Velocity: "+str(MSVelocity))
+        print("Altitude: "+str(MSAltitude)+"     Velocity: "+str(MSVelocity))

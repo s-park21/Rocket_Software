@@ -210,7 +210,7 @@ void Task1code( void * pvParameters ) {
         }
         xSemaphoreGive( xSemaphore );
       }
-      //      Serial.println("Sending IMU data");
+           Serial.println("Sending IMU data");
       LoRa.beginPacket();
       LoRa.write(0x5);
       imuChecksum = crc32.calc((uint8_t*)&IMUtransmittBuffer, sizeof(IMUtransmittBuffer));
@@ -226,7 +226,7 @@ void Task1code( void * pvParameters ) {
 
 
       if (newBaroData) {
-        //        Serial.println("Sending RRC3 data");
+               Serial.println("Sending RRC3 data");
         LoRa.beginPacket();
         LoRa.write(0x3);
         //LoRa.println(RRC3_Data);// Send header byte
@@ -238,7 +238,7 @@ void Task1code( void * pvParameters ) {
 
       byte MStransmittBuffer[sizeof(MSBaroUnion.MSbaroByteArray)];
       if (newMSBaroData) {
-        //        Serial.println("Sending baro data");
+               Serial.println("Sending baro data");
         if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
           for (int i = 0; i < sizeof(MSBaroUnion.MSbaroByteArray); i++) {             // Take semaphore and copy protected memory into temporary buffer
             MStransmittBuffer[i] = MSBaroUnion.MSbaroByteArray[i];
@@ -268,7 +268,7 @@ void Task1code( void * pvParameters ) {
 
       byte GPStransmittBuffer[sizeof(GPSUnion.GPSByteArray)];
       if (true /*sendGPS*/) {     // Allow resending of GPS packets so that missed packets can be resent
-        //        Serial.println("Sending GPS data");
+               Serial.println("Sending GPS data");
         if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
           for (int i = 0; i < sizeof(GPSUnion.GPSByteArray); i++) {             // Take semaphore and copy protected memory into temporary buffer
             GPStransmittBuffer[i] = GPSUnion.GPSByteArray[i];
