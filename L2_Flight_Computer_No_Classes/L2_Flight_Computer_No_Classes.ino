@@ -53,6 +53,7 @@ typedef struct {
 
 typedef struct {
   unsigned long totalMillis;
+  unsigned long totalMicros;
   signed long latt;
   signed long longi;
   int alt;
@@ -411,21 +412,10 @@ void Task2code( void * pvParameters ) {
         }
       }
 
-      // dtostrf(millis(), 10, 0, a);                                         //  Convert to string
-      // dtostrf(((float)acc.acceleration.x - accXoffset), 4, 2, b);
-      // dtostrf(((float)acc.acceleration.y - accYoffset), 4, 2, c);
-      // dtostrf(((float)acc.acceleration.z - accZoffset), 4, 2, d);
-      // dtostrf(((float)gyr.gyro.x), 4, 2, e);
-      // dtostrf(((float)gyr.gyro.y), 4, 2, f);
-      // dtostrf(((float)gyr.gyro.z), 4, 2, g);
-      // dtostrf(((float)temp.temperature), 4, 2, h);
-
-      // sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
-
       sprintf(imuArray, "%lu,%lu,%4.2f,%4.2f,%4.2f,%4.2f,%4.2f,%4.2f,%4.2f", imuUnion.imuData.totalMillis, imuUnion.imuData.totalMicros, ((float)imuUnion.imuData.accX)/100, ((float)imuUnion.imuData.accY)/100, ((float)imuUnion.imuData.accZ)/100, ((float)imuUnion.imuData.gyroX)/100, ((float)imuUnion.imuData.gyroY)/100, ((float)imuUnion.imuData.gyroZ)/100, ((float)imuUnion.imuData.tempC)/100);
 
       //  Write imu data to SD
-           Serial.println(imuArray);
+          //  Serial.println(imuArray);
       IMUDataFile.println(imuArray);
 
       // *************************************************************************  Barometer *********************************************************************************
@@ -502,6 +492,7 @@ void Task2code( void * pvParameters ) {
             {
               newGPSData = true;
               GPSUnion.GPSData.totalMillis = millis();
+              GPSUnion.GPSData.totalMicros = micros();
               GPSUnion.GPSData.latt = gps.location.lat() * 1000000;
               GPSUnion.GPSData.longi = gps.location.lng() * 1000000;
               GPSUnion.GPSData.alt = gps.altitude.meters();
@@ -521,17 +512,20 @@ void Task2code( void * pvParameters ) {
 
       if (newGPSData) {
         sendGPS = true;
-        char lt[20], ln[20], al[20], ts[20], ns[20], hd[20], sm[20];      //  Initalise char container
-        dtostrf(((float)gps.location.lat()), 10, 6, lt);                                        //  Convert to string
-        dtostrf(((float)gps.location.lng()), 10, 6, ln);
-        dtostrf(gps.altitude.meters(), 5, 0, al);
-        dtostrf(gps.time.value(), 10, 0, ts);
-        dtostrf(gps.satellites.value(), 2, 0, ns);
-        dtostrf(gps.course.deg(), 4, 0, hd);
-        dtostrf(((float)gps.speed.mps()) / 100, 6, 2, sm);
-        memset(GPSArray, 0, sizeof(GPS_Data));
-        sprintf(GPSArray, "%s,%s,%s,%s,%s,%s,%s", lt, ln, al, ts, ns, hd, sm);    //  Convert to character array
-        //        Serial.println(GPSArray);
+        // char lt[20], ln[20], al[20], ts[20], ns[20], hd[20], sm[20];      //  Initalise char container
+        // dtostrf(((float)gps.location.lat()), 10, 6, lt);                                        //  Convert to string
+        // dtostrf(((float)gps.location.lng()), 10, 6, ln);
+        // dtostrf(gps.altitude.meters(), 5, 0, al);
+        // dtostrf(gps.time.value(), 10, 0, ts);
+        // dtostrf(gps.satellites.value(), 2, 0, ns);
+        // dtostrf(gps.course.deg(), 4, 0, hd);
+        // dtostrf(((float)gps.speed.mps()) / 100, 6, 2, sm);
+        // memset(GPSArray, 0, sizeof(GPS_Data));
+        // sprintf(GPSArray, "%s,%s,%s,%s,%s,%s,%s", lt, ln, al, ts, ns, hd, sm);    //  Convert to character array
+
+        sprintf(GPSArray, "%lu,%lu,%10.6f,%10.6f,%5.0d,%10.0lu,%2.0d,%4.0d,%6.2f", GPSUnion.GPSData.totalMillis, GPSUnion.GPSData.totalMicros, ((float)GPSUnion.GPSData.latt)/1E6, ((float)GPSUnion.GPSData.longi)/1E6, (int)GPSUnion.GPSData.alt, GPSUnion.GPSData.tStamp, (int)GPSUnion.GPSData.numSat, (int)GPSUnion.GPSData.heading, ((int)GPSUnion.GPSData.speedMps)/100);
+
+               Serial.println(GPSArray);
         GPSDataFile.println(GPSArray);
 
       }

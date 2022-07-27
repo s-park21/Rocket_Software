@@ -36,7 +36,7 @@ RRC3File = open(directory+"/RRC3.csv", "w")
 baroFile = open(directory+"/baro.csv", "w")
 
 imuFile.write("Time (ms), Time (us), accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, Packet Error\n")
-GPSFile.write("Time (ms), latt, longi, alt, tStamp, speedMps, heading, numSat, Packet Error\n")
+GPSFile.write("Time (ms), Time (us), latt, longi, alt, tStamp, speedMps, heading, numSat, Packet Error\n")
 baroFile.write("Time (ms), Altitude (m), Pressure (Pa), Temperature (degC), Packet Error\n")
 
 while(1):
@@ -53,21 +53,21 @@ while(1):
             dataByte = serialPort.read(30)
 
         elif(header == b'\x06'):
-            dataByte = serialPort.read(36)
+            dataByte = serialPort.read(40)
             # print(dataByte.hex())
-            checkSum_calculated = zlib.crc32(dataByte[0:32])
-            totalMillis, latt, longi, alt, tStamp, speedMps, heading, numSat, checkSum = unpack('LlliLiiiI', dataByte)
+            checkSum_calculated = zlib.crc32(dataByte[0:36])
+            totalMillis, totalMicros, latt, longi, alt, tStamp, speedMps, heading, numSat, checkSum = unpack('LLlliLiiiI', dataByte)
             if (checkSum_calculated == checkSum):
                 latt = latt/1000000
                 longi = longi/1000000
                 speedMps = round(speedMps/100,2)
-                GPSString = str(totalMillis) + ", " + str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(speedMps) + ", " +  str(heading) + ", " + str(numSat) + ", 0\n"
+                GPSString = str(totalMillis) + ", " + str(totalMicros) + ", " + str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(speedMps) + ", " +  str(heading) + ", " + str(numSat) + ", 0\n"
                 GPSFile.write(GPSString)
                 GPSFile.flush()
                 print(str(GPSString))
             else: 
                 print("GPS packet error") # Write to log file
-                GPSString = str(totalMillis) + ", " + str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(speedMps) + ", " +  str(heading) + ", " + str(numSat) + ", 1\n"
+                GPSString = str(totalMillis) + ", " + str(totalMicros) + ", " + str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(speedMps) + ", " +  str(heading) + ", " + str(numSat) + ", 1\n"
                 GPSFile.write(GPSString)
                 GPSFile.flush()
                 # print(hex(checkSum_calculated), ", ",hex(checkSum))
@@ -93,13 +93,13 @@ while(1):
                 imuFile.write(str(imuString))
                 imuFile.flush()
                 # print(dataByte[8:12].hex(),", ",checkSum)
-                print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
+                # print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
 
                 # Incoming packets appear to be correct therefore the problems with the imu data must be arising from the unpacking of the data            
 
             else: 
                 print("IMU packet error") # Write bad packets to log file
-                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ) + ", " + str(tempC)+", 1\n"
+                imuString = str(totalMillis)+", "+str(totalMicros)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ) + ", " + str(tempC)+", 1\n"
                 imuFile.write(str(imuString))
                 imuFile.flush()
 
