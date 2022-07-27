@@ -35,7 +35,7 @@ GPSFile = open(directory+"/GPS.csv", "w")
 RRC3File = open(directory+"/RRC3.csv", "w")
 baroFile = open(directory+"/baro.csv", "w")
 
-imuFile.write("Time (ms), accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, Packet Error\n")
+imuFile.write("Time (ms), Time (us), accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, Packet Error\n")
 GPSFile.write("Time (ms), latt, longi, alt, tStamp, speedMps, heading, numSat, Packet Error\n")
 baroFile.write("Time (ms), Altitude (m), Pressure (Pa), Temperature (degC), Packet Error\n")
 
@@ -76,11 +76,11 @@ while(1):
             # print(dataByte.hex())
 
         elif(header== b'\x05'):
-            dataByte = serialPort.read(36)
+            dataByte = serialPort.read(40)
             # print(dataByte)
             
-            checkSum_calculated = zlib.crc32(dataByte[0:32])
-            totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = unpack('LiiiiiiiI', dataByte) 
+            checkSum_calculated = zlib.crc32(dataByte[0:36])
+            totalMillis, totalMicros, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = unpack('LLiiiiiiiI', dataByte) 
             if (checkSum_calculated == checkSum):
                 accX = round(accX/100,2)
                 accY = round(accX/100,2)
@@ -89,7 +89,7 @@ while(1):
                 gyroY = round(gyroZ/100,2)
                 gyroZ = round(gyroZ/100,2)
                 tempC = round(tempC/100,2)
-                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ) + ", " + str(tempC)+", 0\n"
+                imuString = str(totalMillis)+", "+str(totalMicros)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ) + ", " + str(tempC)+", 0\n"
                 imuFile.write(str(imuString))
                 imuFile.flush()
                 # print(dataByte[8:12].hex(),", ",checkSum)

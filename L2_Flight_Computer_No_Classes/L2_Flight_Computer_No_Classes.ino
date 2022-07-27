@@ -41,6 +41,7 @@ bool calibrateMPUFlag = false;
 
 typedef struct {
   unsigned long totalMillis;
+  unsigned long totalMicros;
   int accX;
   int accY;
   int accZ;
@@ -346,7 +347,7 @@ void Task2code( void * pvParameters ) {
   char imuF[10] = "/imu.csv";
   strcat(IMUFileName, imuF);
   IMUDataFile = SD.open(IMUFileName, FILE_WRITE);
-  String imuDataHead = "Time (ms), XAccel (m/s^2), YAccel (m/s^2), ZAccel (m/s^2), X Angular Rate (rad/s), Y Angular Rate (rad/s), Z Angular Rate (rad/s)";
+  String imuDataHead = "Time (ms), Time (us), XAccel (m/s^2), YAccel (m/s^2), ZAccel (m/s^2), X Angular Rate (rad/s), Y Angular Rate (rad/s), Z Angular Rate (rad/s)";
   IMUDataFile.println(imuDataHead);
   IMUDataFile.flush();
 
@@ -396,6 +397,7 @@ void Task2code( void * pvParameters ) {
         if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE )
         {
           imuUnion.imuData.totalMillis = millis();         // Log aquisition time
+          imuUnion.imuData.totalMicros = micros();  
 
           imuUnion.imuData.accX = (acc.acceleration.x - accXoffset) * 100;
           imuUnion.imuData.accY = (acc.acceleration.y - accYoffset) * 100;
@@ -409,19 +411,21 @@ void Task2code( void * pvParameters ) {
         }
       }
 
-      dtostrf(millis(), 10, 0, a);                                         //  Convert to string
-      dtostrf(((float)acc.acceleration.x - accXoffset), 4, 2, b);
-      dtostrf(((float)acc.acceleration.y - accYoffset), 4, 2, c);
-      dtostrf(((float)acc.acceleration.z - accZoffset), 4, 2, d);
-      dtostrf(((float)gyr.gyro.x), 4, 2, e);
-      dtostrf(((float)gyr.gyro.y), 4, 2, f);
-      dtostrf(((float)gyr.gyro.z), 4, 2, g);
-      dtostrf(((float)temp.temperature), 4, 2, h);
+      // dtostrf(millis(), 10, 0, a);                                         //  Convert to string
+      // dtostrf(((float)acc.acceleration.x - accXoffset), 4, 2, b);
+      // dtostrf(((float)acc.acceleration.y - accYoffset), 4, 2, c);
+      // dtostrf(((float)acc.acceleration.z - accZoffset), 4, 2, d);
+      // dtostrf(((float)gyr.gyro.x), 4, 2, e);
+      // dtostrf(((float)gyr.gyro.y), 4, 2, f);
+      // dtostrf(((float)gyr.gyro.z), 4, 2, g);
+      // dtostrf(((float)temp.temperature), 4, 2, h);
 
-      sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
+      // sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
+
+      sprintf(imuArray, "%lu,%lu,%4.2f,%4.2f,%4.2f,%4.2f,%4.2f,%4.2f,%4.2f", imuUnion.imuData.totalMillis, imuUnion.imuData.totalMicros, ((float)imuUnion.imuData.accX)/100, ((float)imuUnion.imuData.accY)/100, ((float)imuUnion.imuData.accZ)/100, ((float)imuUnion.imuData.gyroX)/100, ((float)imuUnion.imuData.gyroY)/100, ((float)imuUnion.imuData.gyroZ)/100, ((float)imuUnion.imuData.tempC)/100);
 
       //  Write imu data to SD
-      //      Serial.println(imuArray);
+           Serial.println(imuArray);
       IMUDataFile.println(imuArray);
 
       // *************************************************************************  Barometer *********************************************************************************
