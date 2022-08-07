@@ -19,7 +19,6 @@
 Arduino_CRC32 crc32;
 
 char MSBaroArray[50];
-char RRC3_Data[20] = {};
 char GPS_Data[50] = {};
 int LEDPin = 32;
 char imuArray[100];
@@ -74,6 +73,7 @@ typedef struct {
 
 typedef struct {
   unsigned long totalMillis;
+  unsigned long totalMicros;
   float altitude;
   float pressure;
   float tempC;
@@ -154,7 +154,8 @@ void setup() {
   pinMode(LEDPin, OUTPUT);
   Wire.begin();
   Serial2.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  xSemaphore = xSemaphoreCreateMutex();             // Create semaphore to protect data while writing  Serial1.begin(9600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
+  Serial1.begin(9600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
+  xSemaphore = xSemaphoreCreateMutex();             // Create semaphore to protect data while writing  
   pinMode(irqPin, INPUT);
   
 
@@ -229,10 +230,26 @@ void Task1code( void * pvParameters ) {
 
       if (newBaroData) {
         //        Serial.println("Sending RRC3 data");
+        byte C3BarotransmittBuffer[sizeof(RRC3baroUnion.baroByteArray)];
+        if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
+          for (int i = 0; i < sizeof(RRC3baroUnion.baroByteArray); i++) {             // Take semaphore and copy protected memory into temporary buffer
+            C3BarotransmittBuffer[i] = RRC3baroUnion.baroByteArray[i];
+            // Serial.printf("%X ", C3BarotransmittBuffer[i]);
+          }
+          // Serial.println("");
+          // Serial.printf("Alt: %f, Batt volt: %f, Event: %s, TempF: %f, totalMillis: %lu, Velocity: %f\r\n", RRC3baroUnion.RRC3baroData.altitude, RRC3baroUnion.RRC3baroData.battVolt, RRC3baroUnion.RRC3baroData.event, RRC3baroUnion.RRC3baroData.tempF, RRC3baroUnion.RRC3baroData.totalMillis, RRC3baroUnion.RRC3baroData.velocity);
+          xSemaphoreGive( xSemaphore );
+        }
+
         LoRa.beginPacket();
-        LoRa.write(0x3);
-        //LoRa.println(RRC3_Data);// Send header byte
-        //LoRa.write((uint8_t*)&baroData, sizeof(baroData));
+        LoRa.write(0x3); 
+        uint32_t C3BaroChecksum = crc32.calc((uint8_t*)&C3BarotransmittBuffer, sizeof(C3BarotransmittBuffer));
+        LoRa.write((uint8_t*)&C3BarotransmittBuffer, sizeof(C3BarotransmittBuffer));
+        // Send 32bit CRC
+        LoRa.write(C3BaroChecksum);
+        LoRa.write((C3BaroChecksum >> 8) & 0xFF);
+        LoRa.write((C3BaroChecksum >> 16) & 0xFF);
+        LoRa.write((C3BaroChecksum >> 24) & 0xFF);
         LoRa.endPacket(false);
         LoRa.flush();
         newBaroData = false;
@@ -305,6 +322,7 @@ void Task1code( void * pvParameters ) {
   This code runs the data reading and logging to the SD card
 */
 void Task2code( void * pvParameters ) {
+  sensors_event_t acc, gyr, temp;
   while (!SD.begin()) {
     Serial.println("Card failed, or not present");
     errorBlink(1);
@@ -332,15 +350,15 @@ void Task2code( void * pvParameters ) {
   char baroF[12] = "/C3baro.csv";
   strcat(baroFileName, baroF);
   RRC3baroFile = SD.open(baroFileName, FILE_WRITE);
-  String AltimeterHead = "Time (ms), Altitude (m), Velocity (m/s), Temperature (degC), Events";
-  RRC3baroFile.print(AltimeterHead);
+  String AltimeterHead = "Time (ms), Altitude (m), Velocity (m/s), Temperature (degF), Events, Battery Voltage";
+  RRC3baroFile.println(AltimeterHead);
   RRC3baroFile.flush();
 
   strcpy(baroFileName, dirname);
   strcpy(baroF, "/MSbaro.csv");
   strcat(baroFileName, baroF);
   MSbaroFile = SD.open(baroFileName, FILE_WRITE);
-  AltimeterHead = "Time (ms), Altitude (m), Pressure (Pa), Temperature (degC)";
+  AltimeterHead = "Time (ms), Time (us), Altitude (m), Pressure (Pa), Temperature (degC)";
   MSbaroFile.println(AltimeterHead);
   MSbaroFile.flush();
 
@@ -356,7 +374,7 @@ void Task2code( void * pvParameters ) {
   char GPSF[10] = "/GPS.csv";
   strcat(GPSFileName, GPSF);
   GPSDataFile = SD.open(GPSFileName, FILE_WRITE);
-  String GPSDataHead = "Lattitude , Longitude, Altitude (m), Timestamp (HHMMSSCC), Number of Satellites, Heading (deg), Speed (m/s)";
+  String GPSDataHead = "Time (ms), Time (us), Lattitude , Longitude, Altitude (m), Timestamp (HHMMSSCC), Number of Satellites, Heading (deg), Speed (m/s)";
   GPSDataFile.println(GPSDataHead);
   GPSDataFile.flush();
 
@@ -387,8 +405,7 @@ void Task2code( void * pvParameters ) {
   for (;;) {
     while (launchProceedure) {
 
-      //  Get imu datat
-      sensors_event_t acc, gyr, temp;
+      //  Get imu data
       mpu.getEvent(&acc, &gyr, &temp);                  // Blocking call -> check if new data and only poll if there is
 
       if ( xSemaphore != NULL )
@@ -425,62 +442,84 @@ void Task2code( void * pvParameters ) {
       if (Serial1.available() > 0) {
         while (Serial1.available() > 0) {
           char inByte = Serial1.read();
-          if (inByte != '\n') {
-            newBaroData = true;
-            RRC3_Data[ndx] = inByte;
-            ndx++;
+          // Serial.print(inByte);
+          if (inByte == '\n') {
+            break;
           }
+          newBaroData = true;
+          RRC3_Data[ndx] = inByte;
+          ndx++;
         }
-      }
-      ndx = 0;
-      if (newBaroData) {
-        RRC3baroData.totalMillis = millis();
-        int i = 0;
-        while (RRC3_Data[i] != 0x2C) {    // Discard first packet
-          i++;
-        }
-        char buff[20];
-        while (RRC3_Data[i] != 0x2C) {    // Extract altitude data
-          buff[i] = RRC3_Data[i];
-          i++;
-        }
-        RRC3baroData.altitude = float(atof(buff));
-        memset(buff, 0, sizeof(buff));
+        Serial.printf("RRC3 Data: %s\r\n", RRC3_Data);
+      
+        ndx = 0;
 
-        while (RRC3_Data[i] != 0x2C) {    // Extract velocity data
-          buff[i] = RRC3_Data[i];
+        if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
+          RRC3baroUnion.RRC3baroData.totalMillis = millis();
+          int i = 0;
+          while (RRC3_Data[i] != 0x2C) {    // Discard first packet
+            i++;
+          }
           i++;
-        }
-        RRC3baroData.velocity = float(atof(buff));
-        memset(buff, 0, sizeof(buff));
+          char buff[50];
+          while (RRC3_Data[i] != 0x2C) {    // Extract altitude data
+            buff[ndx] = RRC3_Data[i];
+            ndx++;
+            i++;
+          }
+          ndx = 0;
+          i++;
+          Serial.printf("Alt: %s\r\n", buff);
+          RRC3baroUnion.RRC3baroData.altitude = float(atof(buff));
+          memset(buff, 0, sizeof(buff));
 
-        while (RRC3_Data[i] != 0x2C) {    // Extract temperature data
-          buff[i] = RRC3_Data[i];
+          while (RRC3_Data[i] != 0x2C) {    // Extract velocity data
+            buff[ndx] = RRC3_Data[i];
+            ndx++;
+            i++;
+          }
+          ndx = 0;
           i++;
-        }
-        RRC3baroData.tempF = float(atof(buff));
-        memset(buff, 0, sizeof(buff));
+          Serial.printf("Velocity: %s\r\n", buff);
+          RRC3baroUnion.RRC3baroData.velocity = float(atof(buff));
+          memset(buff, 0, sizeof(buff));
 
-        while (RRC3_Data[i] != 0x2C) {
-          buff[i] = RRC3_Data[i];
+          while (RRC3_Data[i] != 0x2C) {    // Extract temperature data
+            buff[ndx] = RRC3_Data[i];
+            ndx++;
+            i++;
+          }
+          ndx = 0;
           i++;
-        }
-        strcpy(RRC3baroData.event, buff);
-        memset(buff, 0, sizeof(buff));
+          RRC3baroUnion.RRC3baroData.tempF = float(atof(buff));
+          memset(buff, 0, sizeof(buff));
 
-        while (RRC3_Data[i] != 0x2C) {
-          buff[i] = RRC3_Data[i];
+          while (RRC3_Data[i] != 0x2C) {
+            buff[ndx] = RRC3_Data[i];
+            ndx++;
+            i++;
+          }
+          ndx = 0;
           i++;
+          strcpy(RRC3baroUnion.RRC3baroData.event, buff);
+          memset(buff, 0, sizeof(buff));
+
+          while (RRC3_Data[i] != 0x2C) {
+            buff[ndx] = RRC3_Data[i];
+            ndx++;
+            i++;
+          }
+          RRC3baroUnion.RRC3baroData.battVolt = float(atof(buff));
+          xSemaphoreGive( xSemaphore );
+          memset(buff, 0, sizeof(buff));
         }
-        RRC3baroData.battVolt = float(atof(buff));
-        memset(buff, 0, sizeof(buff));
+        
+        
 
         // Write to SD card
-        memset(RRC3_Data, 0, sizeof(RRC3_Data));          //  Empty data array
-        //Serial.println(RRC3_Data);
         RRC3baroFile.println(RRC3_Data);
+        memset(RRC3_Data, 0, sizeof(RRC3_Data));          //  Empty data array
       }
-      newBaroData = false;
 
       if (Serial2.available() > 0) {
         while (Serial2.available() > 0) {
@@ -525,7 +564,7 @@ void Task2code( void * pvParameters ) {
 
         sprintf(GPSArray, "%lu,%lu,%10.6f,%10.6f,%5.0d,%10.0lu,%2.0d,%4.0d,%6.2f", GPSUnion.GPSData.totalMillis, GPSUnion.GPSData.totalMicros, ((float)GPSUnion.GPSData.latt)/1E6, ((float)GPSUnion.GPSData.longi)/1E6, (int)GPSUnion.GPSData.alt, GPSUnion.GPSData.tStamp, (int)GPSUnion.GPSData.numSat, (int)GPSUnion.GPSData.heading, ((int)GPSUnion.GPSData.speedMps)/100);
 
-               Serial.println(GPSArray);
+              //  Serial.println(GPSArray);
         GPSDataFile.println(GPSArray);
 
       }
@@ -537,23 +576,25 @@ void Task2code( void * pvParameters ) {
       }
 
       // Read baro every 100ms
-      if (millis() - startTime > 100) {
+      if (millis() - startTime > 1) {
         startTime = millis();
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE) {
           MSBaroUnion.MSbaroData.totalMillis = millis();
+          MSBaroUnion.MSbaroData.totalMicros = micros();
           MSBaroUnion.MSbaroData.tempC = ms5611.readTemperature(true);                         // Returns temperature in C
           MSBaroUnion.MSbaroData.pressure = ms5611.readPressure(true);                         // Returns pressure in Pascals
           MSBaroUnion.MSbaroData.altitude = ms5611.getAltitude(MSBaroUnion.MSbaroData.pressure);
         }
         xSemaphoreGive(xSemaphore);
         //        Serial.println(ms5611.getAltitude(MSBaroUnion.MSbaroData.pressure));
-        dtostrf(millis(), 10, 0, a);                                         //  Convert to string
-        dtostrf(((float)MSBaroUnion.MSbaroData.altitude), 5, 2, b);
-        dtostrf(((float)MSBaroUnion.MSbaroData.pressure), 4, 0, c);
-        dtostrf(((float)MSBaroUnion.MSbaroData.tempC), 4, 2, d);
+        // dtostrf(millis(), 10, 0, a);                                         //  Convert to string
+        // dtostrf(((float)MSBaroUnion.MSbaroData.altitude), 5, 2, b);
+        // dtostrf(((float)MSBaroUnion.MSbaroData.pressure), 4, 0, c);
+        // dtostrf(((float)MSBaroUnion.MSbaroData.tempC), 4, 2, d);
         char MSBaroArray[50];
-        memset(GPSArray, 0, sizeof(GPS_Data));
-        sprintf(MSBaroArray, "%s,%s,%s,%s", a, b, c, d);     //  Convert to character array
+        // memset(GPSArray, 0, sizeof(GPS_Data));
+        sprintf(MSBaroArray, "%s,%s,%s,%s", a, b, c, d);     //  This line is completely redundant but is needed for stability. I have no idea why but it cannot be removed.
+        sprintf(MSBaroArray, "%lu,%lu,%.2f,%d,%.2f", MSBaroUnion.MSbaroData.totalMillis, MSBaroUnion.MSbaroData.totalMicros, MSBaroUnion.MSbaroData.altitude, MSBaroUnion.MSbaroData.pressure, MSBaroUnion.MSbaroData.tempC);
         MSbaroFile.println(MSBaroArray);
         newMSBaroData = true;
       }
