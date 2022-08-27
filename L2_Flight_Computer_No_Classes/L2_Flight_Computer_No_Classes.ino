@@ -138,9 +138,9 @@ const int SERIAL1_RX = 34;
 const int SERIAL1_TX = 4;
 const int GPS_BAUD = 115200;
 
-float accXoffset = 1.64;
-float accYoffset = -0.14;
-float accZoffset = 7.14;
+float accXoffset = -9.192509;
+float accYoffset = 0.181567;
+float accZoffset = -1.013140;
 
 float gyroXoffset = -0.059915;
 float gyroYoffset = -0.019169;
@@ -156,7 +156,8 @@ void setup() {
   pinMode(LEDPin, OUTPUT);
   Wire.begin();
   Serial2.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  xSemaphore = xSemaphoreCreateMutex();             // Create semaphore to protect data while writing  Serial1.begin(9600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
+  Serial1.begin(9600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
+  xSemaphore = xSemaphoreCreateMutex();             // Create semaphore to protect data while writing  
   pinMode(irqPin, INPUT);
   
 
@@ -429,69 +430,73 @@ void Task2code( void * pvParameters ) {
       IMUDataFile.println(imuArray);
 
       // *************************************************************************  Barometer *********************************************************************************
-      char RRC3_Data[30];
+      char RRC3_Data[100];
 
       static byte ndx = 0;                    // Read binary uart data into buffer -> RRC3_Data
       if (Serial1.available() > 0) {
         while (Serial1.available() > 0) {
           char inByte = Serial1.read();
-//          Serial.print(inByte);
+            // Serial.print(inByte);
           if (inByte != '\n') {
             newBaroData = true;
             RRC3_Data[ndx] = inByte;
             ndx++;
           }
+          else break;
         }
       }
       ndx = 0;
       if (newBaroData) {
-        RRC3baroData.totalMillis = millis();
-        int i = 0;
-        while (RRC3_Data[i] != 0x2C) {    // Discard first packet
-          i++;
-        }
-        char buff[20];
-        while (RRC3_Data[i] != 0x2C) {    // Extract altitude data
-          buff[i] = RRC3_Data[i];
-          i++;
-        }
-        RRC3baroData.altitude = float(atof(buff));
-        memset(buff, 0, sizeof(buff));
+        // RRC3baroData.totalMillis = millis();
+        // int i = 0;
+        // while (RRC3_Data[i] != 0x2C) {    // Discard first packet
+        //   i++;
+        // }
+        // char buff[20];
+        // while (RRC3_Data[i] != 0x2C) {    // Extract altitude data
+        //   buff[i] = RRC3_Data[i];
+        //   i++;
+        // }
+        // RRC3baroData.altitude = float(atof(buff));
+        // memset(buff, 0, sizeof(buff));
 
-        while (RRC3_Data[i] != 0x2C) {    // Extract velocity data
-          buff[i] = RRC3_Data[i];
-          i++;
-        }
-        RRC3baroData.velocity = float(atof(buff));
-        memset(buff, 0, sizeof(buff));
+        // while (RRC3_Data[i] != 0x2C) {    // Extract velocity data
+        //   buff[i] = RRC3_Data[i];
+        //   i++;
+        // }
+        // RRC3baroData.velocity = float(atof(buff));
+        // memset(buff, 0, sizeof(buff));
 
-        while (RRC3_Data[i] != 0x2C) {    // Extract temperature data
-          buff[i] = RRC3_Data[i];
-          i++;
-        }
-        RRC3baroData.tempF = float(atof(buff));
-        memset(buff, 0, sizeof(buff));
+        // while (RRC3_Data[i] != 0x2C) {    // Extract temperature data
+        //   buff[i] = RRC3_Data[i];
+        //   i++;
+        // }
+        // RRC3baroData.tempF = float(atof(buff));
+        // memset(buff, 0, sizeof(buff));
 
-        while (RRC3_Data[i] != 0x2C) {
-          buff[i] = RRC3_Data[i];
-          i++;
-        }
-        strcpy(RRC3baroData.event, buff);
-        memset(buff, 0, sizeof(buff));
+        // while (RRC3_Data[i] != 0x2C) {
+        //   buff[i] = RRC3_Data[i];
+        //   i++;
+        // }
+        // strcpy(RRC3baroData.event, buff);
+        // memset(buff, 0, sizeof(buff));
 
-        while (RRC3_Data[i] != 0x2C) {
-          buff[i] = RRC3_Data[i];
-          i++;
-        }
-        RRC3baroData.battVolt = float(atof(buff));
-        memset(buff, 0, sizeof(buff));
+        // while (RRC3_Data[i] != 0x2C) {
+        //   buff[i] = RRC3_Data[i];
+        //   i++;
+        // }
+        // RRC3baroData.battVolt = float(atof(buff));
+        // memset(buff, 0, sizeof(buff));
 
         // Write to SD card
+        char print_data[100];
+        sprintf(print_data, "%lu,%lu,%s", millis(), micros(), RRC3_Data);
+        RRC3baroFile.println(print_data);
+        // Serial.println(print_data);
         memset(RRC3_Data, 0, sizeof(RRC3_Data));          //  Empty data array
-        //Serial.println(RRC3_Data);
-        RRC3baroFile.println(RRC3_Data);
+        newBaroData = false;
       }
-      newBaroData = false;
+      
 
       if (Serial2.available() > 0) {
         while (Serial2.available() > 0) {
