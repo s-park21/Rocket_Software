@@ -89,11 +89,11 @@ while(1):
                 gyroY = round(gyroZ/100,2)
                 gyroZ = round(gyroZ/100,2)
                 tempC = round(tempC/100,2)
-                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ) + ", " + str(tempC)+", 0\n"
+                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY )+", "+str(accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ) + ", " + str(tempC)+", 0\n"
                 imuFile.write(str(imuString))
                 imuFile.flush()
                 # print(dataByte[8:12].hex(),", ",checkSum)
-                print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
+                # print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
 
                 # Incoming packets appear to be correct therefore the problems with the imu data must be arising from the unpacking of the data            
 

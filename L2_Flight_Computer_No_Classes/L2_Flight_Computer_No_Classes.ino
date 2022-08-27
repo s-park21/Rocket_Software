@@ -142,13 +142,17 @@ float accXoffset = 1.64;
 float accYoffset = -0.14;
 float accZoffset = 7.14;
 
+float gyroXoffset = -0.059915;
+float gyroYoffset = -0.019169;
+float gyroZoffset = -0.256082;
+
 SemaphoreHandle_t xSemaphore = NULL;
 
 MS5611 ms5611;                                                   // Initalise MS5611 library
 
 void setup() {
 
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(LEDPin, OUTPUT);
   Wire.begin();
   Serial2.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
@@ -372,7 +376,7 @@ void Task2code( void * pvParameters ) {
   Serial2.end();                                                        // empty the input buffer, too
 
   Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);                  // use the new baud rate
-  //Serial2.print( F("$PMTK220,100*2F\r\n") );                            // set 10Hz update rate
+  Serial2.print( F("$PMTK220,100*2F\r\n") );                            // set 10Hz update rate
 
 
 
@@ -401,9 +405,9 @@ void Task2code( void * pvParameters ) {
           imuUnion.imuData.accY = (acc.acceleration.y - accYoffset) * 100;
           imuUnion.imuData.accZ = (acc.acceleration.z - accZoffset) * 100;
 
-          imuUnion.imuData.gyroX = gyr.gyro.x * 100;
-          imuUnion.imuData.gyroY = gyr.gyro.y * 100;
-          imuUnion.imuData.gyroZ = gyr.gyro.z * 100;
+          imuUnion.imuData.gyroX = (gyr.gyro.x - gyroXoffset) * 100;
+          imuUnion.imuData.gyroY = (gyr.gyro.x - gyroYoffset) * 100;
+          imuUnion.imuData.gyroZ = (gyr.gyro.x - gyroZoffset) * 100;
           imuUnion.imuData.tempC = temp.temperature * 100;
           xSemaphoreGive( xSemaphore );                             // Release semaphore
         }
@@ -413,15 +417,15 @@ void Task2code( void * pvParameters ) {
       dtostrf(((float)acc.acceleration.x - accXoffset), 4, 2, b);
       dtostrf(((float)acc.acceleration.y - accYoffset), 4, 2, c);
       dtostrf(((float)acc.acceleration.z - accZoffset), 4, 2, d);
-      dtostrf(((float)gyr.gyro.x), 4, 2, e);
-      dtostrf(((float)gyr.gyro.y), 4, 2, f);
-      dtostrf(((float)gyr.gyro.z), 4, 2, g);
+      dtostrf(((float)gyr.gyro.x - gyroXoffset), 4, 2, e);
+      dtostrf(((float)gyr.gyro.x - gyroYoffset), 4, 2, f);
+      dtostrf(((float)gyr.gyro.x - gyroZoffset), 4, 2, g);
       dtostrf(((float)temp.temperature), 4, 2, h);
 
       sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
 
       //  Write imu data to SD
-      //      Serial.println(imuArray);
+          //  Serial.println(imuArray);
       IMUDataFile.println(imuArray);
 
       // *************************************************************************  Barometer *********************************************************************************
@@ -431,6 +435,7 @@ void Task2code( void * pvParameters ) {
       if (Serial1.available() > 0) {
         while (Serial1.available() > 0) {
           char inByte = Serial1.read();
+//          Serial.print(inByte);
           if (inByte != '\n') {
             newBaroData = true;
             RRC3_Data[ndx] = inByte;
@@ -492,7 +497,7 @@ void Task2code( void * pvParameters ) {
         while (Serial2.available() > 0) {
           char b = Serial2.read();
           gps.encode(b);
-          //Serial.print(b);
+          // Serial.print(b);
           if (gps.location.isValid()) {
             if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE )
             {
@@ -619,18 +624,34 @@ void calibrateMPU() {
   double accelXAvg = 0;
   double accelYAvg = 0;
   double accelZAvg = 0;
+  double gyroXAvg = 0;
+  double gyroYAvg = 0;
+  double gyroZAvg = 0;
 
-  for (int i = 0; i < 10; i++) {
+  int num_sum = 500;
+  Serial.println("*************** STARTING CALIBRATION ROUTING ***************");
+  for (int i = 0; i < num_sum; i++) {
     sensors_event_t acc, gyr, temp;
     mpu.getEvent(&acc, &gyr, &temp);
     accelXAvg += acc.acceleration.x;
     accelYAvg += acc.acceleration.y;
     accelZAvg += acc.acceleration.z;
+    gyroXAvg += gyr.gyro.x;
+    gyroYAvg += gyr.gyro.y;
+    gyroZAvg += gyr.gyro.z;
   }
-  accXoffset = accelXAvg / 200;
-  accYoffset = accelYAvg / 200;
-  accZoffset = accelZAvg / 200;
-  Serial.println(accXoffset);
-  Serial.println(accYoffset);
-  Serial.println(accZoffset);
+  accXoffset = accelXAvg / num_sum;
+  accYoffset = accelYAvg / num_sum;
+  accZoffset = accelZAvg / num_sum;
+  gyroXoffset = gyroXAvg / num_sum;
+  gyroYoffset = gyroYAvg / num_sum;
+  gyroZoffset = gyroZAvg / num_sum;
+  
+  Serial.printf("X acceleraton offset: %0.6f\r\n", accXoffset);
+  Serial.printf("Y acceleraton offset: %0.6f\r\n", accYoffset);
+  Serial.printf("Z acceleraton offset: %0.6f\r\n", accZoffset);
+
+  Serial.printf("X gyro offset: %0.6f\r\n", gyroXoffset);
+  Serial.printf("Y gyro offset: %0.6f\r\n", gyroYoffset);
+  Serial.printf("Z gyro offset: %0.6f\r\n", gyroZoffset);
 }
