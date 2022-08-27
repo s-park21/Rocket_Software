@@ -50,7 +50,7 @@ while(1):
 
         elif(header == b'\x03'):
             dataByte = serialPort.read(32)
-            print(dataByte)
+            # print(dataByte)
             checkSum_calculated = zlib.crc32(dataByte[0:28])
             totalMillis, altitude, velocity, buff, tempF, event, checkSum = unpack('Lllll5sI', dataByte)
 
@@ -66,7 +66,7 @@ while(1):
                 GPSString = str(totalMillis) + ", " + str(totalMicros) + ", " + str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(speedMps) + ", " +  str(heading) + ", " + str(numSat) + ", 0\n"
                 GPSFile.write(GPSString)
                 GPSFile.flush()
-                # print(str(GPSString))
+                print(str(GPSString))
             else: 
                 print("GPS packet error") # Write to log file
                 GPSString = str(totalMillis) + ", " + str(totalMicros) + ", " + str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(tStamp) + ", " + str(speedMps) + ", " +  str(heading) + ", " + str(numSat) + ", 1\n"
