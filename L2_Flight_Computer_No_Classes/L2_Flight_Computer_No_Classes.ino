@@ -386,7 +386,7 @@ void Task2code( void * pvParameters ) {
   Serial2.end();                                                        // empty the input buffer, too
 
   Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);                  // use the new baud rate
-  Serial2.print( F(",500*2$PMTK220F\r\n") );                            // set 10Hz update rate - First number is position fix interval in ms
+  Serial2.print( F(",1000*2$PMTK220F\r\n") );                            // set 10Hz update rate - First number is position fix interval in ms
 
 
 
