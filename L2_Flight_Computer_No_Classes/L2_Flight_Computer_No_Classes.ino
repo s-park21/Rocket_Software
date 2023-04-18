@@ -3,6 +3,14 @@
    Its purpose is to log data onto an SD card and transmit data to the ground.
 */
 
+#define DEBUG
+
+#ifdef DEBUG
+void dpln(char* msg) {
+  Serial.println(msg);
+}
+#endif
+
 /*  Library Declarations  */
 
 #include <Arduino_CRC32.h>
@@ -138,12 +146,12 @@ const int SERIAL1_RX = 34;
 const int SERIAL1_TX = 4;
 const int GPS_BAUD = 115200;
 
-float accXoffset = -9.192509;
-float accYoffset = 0.181567;
-float accZoffset = -1.013140;
+float accXoffset = 0.723231;
+float accYoffset = -0.082033;
+float accZoffset = -0.022410;
 
-float gyroXoffset = -0.059915;
-float gyroYoffset = -0.019169;
+float gyroXoffset = -0.056866;
+float gyroYoffset = -0.016219;
 float gyroZoffset = -0.256082;
 
 SemaphoreHandle_t xSemaphore = NULL;
@@ -229,7 +237,6 @@ void Task1code( void * pvParameters ) {
 
       memset(IMUtransmittBuffer, 0, sizeof(IMUtransmittBuffer));
 
-
       if (newBaroData) {
         //        Serial.println("Sending RRC3 data");
         LoRa.beginPacket();
@@ -313,11 +320,20 @@ void Task2code( void * pvParameters ) {
     errorBlink(1);
   }
 
+  dpln("Starting MS5611");
+  while (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    errorBlink(2);
+  }
+  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
+  mpu.setGyroRange(MPU6050_RANGE_1000_DEG);
+  
+  dpln("Starting MPU6050");
   while (!ms5611.begin(MS5611_ULTRA_HIGH_RES)) {
     Serial.println(F("Error connecting to barometer"));
     errorBlink(1);
   }
-
+  dpln("Creating file name");
   for (int i = 0; i < 100; i++) {
     if (SD.exists(dirname)) {
       dirname[strlen(dirname) - 3] = '\0';
@@ -363,13 +379,6 @@ void Task2code( void * pvParameters ) {
   GPSDataFile.println(GPSDataHead);
   GPSDataFile.flush();
 
-  while (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    errorBlink(2);
-  }
-  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
-  mpu.setGyroRange(MPU6050_RANGE_1000_DEG);
-
   //   Setup GPS
   Serial2.print( F("$PMTK251,115200*1F\r\n") );                         // set 115200 baud rate
   Serial2.flush();                                                      // wait for the command to go out
@@ -377,13 +386,13 @@ void Task2code( void * pvParameters ) {
   Serial2.end();                                                        // empty the input buffer, too
 
   Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);                  // use the new baud rate
-  Serial2.print( F("$PMTK220,100*2F\r\n") );                            // set 10Hz update rate
+  Serial2.print( F("$PMTK220,10*2F\r\n") );                            // set 1Hz update rate
 
 
 
   /********/
-  //  delay(5000);
-  //  calibrateMPU();                                                                                                                      // <------------ Delete before launch
+//    delay(5000);
+//    calibrateMPU();                                                                                                                      // <------------ Delete before launch
   /********/
 
   //    This is the Core 2 main loop
@@ -426,7 +435,7 @@ void Task2code( void * pvParameters ) {
       sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
 
       //  Write imu data to SD
-          //  Serial.println(imuArray);
+//      dpln(imuArray);
       IMUDataFile.println(imuArray);
 
       // *************************************************************************  Barometer *********************************************************************************
@@ -537,7 +546,7 @@ void Task2code( void * pvParameters ) {
         dtostrf(((float)gps.speed.mps()) / 100, 6, 2, sm);
         memset(GPSArray, 0, sizeof(GPS_Data));
         sprintf(GPSArray, "%s,%s,%s,%s,%s,%s,%s", lt, ln, al, ts, ns, hd, sm);    //  Convert to character array
-        //        Serial.println(GPSArray);
+        dpln(GPSArray);
         GPSDataFile.println(GPSArray);
 
       }
