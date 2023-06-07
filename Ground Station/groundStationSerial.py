@@ -6,8 +6,9 @@ from os import path
 import time
 
 COMPort = "COM55"
-serialPort = serial.Serial(port=COMPort, baudrate=9600,
-                           bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
+serialPort = serial.Serial(
+    port=COMPort, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
+)
 
 baroData = []
 imuData = []
@@ -37,57 +38,99 @@ os.chdir("FlightData")
 directory = "/data"
 # print(directory)
 dirCount = 1
-while (path.exists(directory)):
+while path.exists(directory):
     directory = "data"
-    directory = directory+str(dirCount)
+    directory = directory + str(dirCount)
     dirCount += 1
 os.mkdir(directory)
-print("Writing data to: "+directory)
+print("Writing data to: " + directory)
 
-imuFile = open(directory+"/imu.csv", "w")
-GPSFile = open(directory+"/GPS.csv", "w")
-RRC3File = open(directory+"/RRC3.csv", "w")
-baroFile = open(directory+"/baro.csv", "w")
+imuFile = open(directory + "/imu.csv", "w")
+GPSFile = open(directory + "/GPS.csv", "w")
+RRC3File = open(directory + "/RRC3.csv", "w")
+baroFile = open(directory + "/baro.csv", "w")
 
-imuFile.write(
-    "Time (ms), accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, Packet Error\n")
+imuFile.write("Time (ms), accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, Packet Error\n")
 GPSFile.write(
-    "Time (ms), latt, longi, alt, tStamp, speedMps, heading, numSat, Packet Error\n")
+    "Time (ms), latt, longi, alt, tStamp, speedMps, heading, numSat, Packet Error\n"
+)
 baroFile.write(
-    "Time (ms), Altitude (m), Pressure (Pa), Temperature (degC), Packet Error\n")
+    "Time (ms), Altitude (m), Pressure (Pa), Temperature (degC), Packet Error\n"
+)
 
-while (1):
-    if (serialPort.in_waiting > 0):
+while 1:
+    if serialPort.in_waiting > 0:
         header = serialPort.read(1)
 
-        if (header == 0x44):
+        if header == 0x44:
             print("Ground station booting")
 
-        elif (header == 0xFA):
+        elif header == 0xFA:
             print("Ground station LoRa failed to boot")
 
-        elif (header == b'\x03'):
+        elif header == b"\x03":
             dataByte = serialPort.read(30)
 
-        elif (header == b'\x06'):
+        elif header == b"\x06":
             dataByte = serialPort.read(36)
             # print(dataByte.hex())
             checkSum_calculated = zlib.crc32(dataByte[0:32])
-            totalMillis, latt, longi, alt, tStamp, speedMps, heading, numSat, checkSum = unpack(
-                'LlliLiiiI', dataByte)
-            if (checkSum_calculated == checkSum):
-                latt = latt/1000000
-                longi = longi/1000000
-                speedMps = round(speedMps/100, 2)
-                GPSString = str(totalMillis) + ", " + str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(
-                    tStamp) + ", " + str(speedMps) + ", " + str(heading) + ", " + str(numSat) + ", 0\n"
+            (
+                totalMillis,
+                latt,
+                longi,
+                alt,
+                tStamp,
+                speedMps,
+                heading,
+                numSat,
+                checkSum,
+            ) = unpack("LlliLiiiI", dataByte)
+            if checkSum_calculated == checkSum:
+                latt = latt / 1000000
+                longi = longi / 1000000
+                speedMps = round(speedMps / 100, 2)
+                GPSString = (
+                    str(totalMillis)
+                    + ", "
+                    + str(latt)
+                    + ", "
+                    + str(longi)
+                    + ", "
+                    + str(alt)
+                    + ", "
+                    + str(tStamp)
+                    + ", "
+                    + str(speedMps)
+                    + ", "
+                    + str(heading)
+                    + ", "
+                    + str(numSat)
+                    + ", 0\n"
+                )
                 GPSFile.write(GPSString)
                 GPSFile.flush()
                 print(str(GPSString))
             else:
                 print("GPS packet error")  # Write to log file
-                GPSString = str(totalMillis) + ", " + str(latt) + ", " + str(longi) + ", " + str(alt) + ", " + str(
-                    tStamp) + ", " + str(speedMps) + ", " + str(heading) + ", " + str(numSat) + ", 1\n"
+                GPSString = (
+                    str(totalMillis)
+                    + ", "
+                    + str(latt)
+                    + ", "
+                    + str(longi)
+                    + ", "
+                    + str(alt)
+                    + ", "
+                    + str(tStamp)
+                    + ", "
+                    + str(speedMps)
+                    + ", "
+                    + str(heading)
+                    + ", "
+                    + str(numSat)
+                    + ", 1\n"
+                )
                 GPSFile.write(GPSString)
                 GPSFile.flush()
                 # print(hex(checkSum_calculated), ", ",hex(checkSum))
@@ -95,23 +138,48 @@ while (1):
             # print(latt, " ", longi, " ", alt)
             # print(dataByte.hex())
 
-        elif (header == b'\x05'):
+        elif header == b"\x05":
             dataByte = serialPort.read(36)
             # print(dataByte)
 
             checkSum_calculated = zlib.crc32(dataByte[0:32])
-            totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = unpack(
-                'LiiiiiiiI', dataByte)
-            if (checkSum_calculated == checkSum):
-                accX = round(accX/100, 2)
-                accY = round(accX/100, 2)
-                accZ = round(accX/100, 2)
-                gyroX = round(gyroZ/100, 2)
-                gyroY = round(gyroZ/100, 2)
-                gyroZ = round(gyroZ/100, 2)
-                tempC = round(tempC/100, 2)
-                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(
-                    accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ) + ", " + str(tempC)+", 0\n"
+            (
+                totalMillis,
+                accX,
+                accY,
+                accZ,
+                gyroX,
+                gyroY,
+                gyroZ,
+                tempC,
+                checkSum,
+            ) = unpack("LiiiiiiiI", dataByte)
+            if checkSum_calculated == checkSum:
+                accX = round(accX / 100, 2)
+                accY = round(accY / 100, 2)
+                accZ = round(accZ / 100, 2)
+                gyroX = round(gyroX / 100, 2)
+                gyroY = round(gyroY / 100, 2)
+                gyroZ = round(gyroZ / 100, 2)
+                tempC = round(tempC / 100, 2)
+                imuString = (
+                    str(totalMillis)
+                    + ", "
+                    + str(accX)
+                    + ", "
+                    + str(accY)
+                    + ", "
+                    + str(accZ)
+                    + ", "
+                    + str(gyroX)
+                    + ", "
+                    + str(gyroY)
+                    + ", "
+                    + str(gyroZ)
+                    + ", "
+                    + str(tempC)
+                    + ", 0\n"
+                )
                 imuFile.write(str(imuString))
                 imuFile.flush()
                 # print(dataByte[8:12].hex(),", ",checkSum)
@@ -121,12 +189,28 @@ while (1):
 
             else:
                 print("IMU packet error")  # Write bad packets to log file
-                imuString = str(totalMillis)+", "+str(accX)+", "+str(accY)+", "+str(
-                    accZ)+", "+str(gyroX)+", "+str(gyroY)+", "+str(gyroZ) + ", " + str(tempC)+", 1\n"
+                imuString = (
+                    str(totalMillis)
+                    + ", "
+                    + str(accX)
+                    + ", "
+                    + str(accY)
+                    + ", "
+                    + str(accZ)
+                    + ", "
+                    + str(gyroX)
+                    + ", "
+                    + str(gyroY)
+                    + ", "
+                    + str(gyroZ)
+                    + ", "
+                    + str(tempC)
+                    + ", 1\n"
+                )
                 imuFile.write(str(imuString))
                 imuFile.flush()
 
-        elif (header == b'\x04'):
+        elif header == b"\x04":
             # Barometer data
             dataByte = serialPort.read(20)
             checkSum_calculated = zlib.crc32(dataByte[0:16])
@@ -134,20 +218,38 @@ while (1):
             global MSTempC
             prevAlt = MSAltitude
             totalMillis, MSAltitude, MSPressure, MSTempC, checkSum = unpack(
-                'LfffI', dataByte)
-            MSVelocity = round((MSAltitude-prevAlt) /
-                               (timeMs-time.time()*1000), 2)
-            timeMs = time.time()*1000
-            if (checkSum == checkSum_calculated):
+                "LfffI", dataByte
+            )
+            MSVelocity = round(
+                (MSAltitude - prevAlt) / (timeMs - time.time() * 1000), 2
+            )
+            timeMs = time.time() * 1000
+            if checkSum == checkSum_calculated:
                 MSAltitude = round(MSAltitude, 2)
                 MSPressure = round(MSPressure, 0)
                 MSTempC = round(MSTempC, 2)
-                baroFile.write(str(totalMillis) + ", " + str(MSAltitude) +
-                               ", " + str(MSPressure) + ", " + str(MSTempC)+", 0\n")
+                baroFile.write(
+                    str(totalMillis)
+                    + ", "
+                    + str(MSAltitude)
+                    + ", "
+                    + str(MSPressure)
+                    + ", "
+                    + str(MSTempC)
+                    + ", 0\n"
+                )
                 baroFile.flush()
             else:
                 print("baro packet error")
-                baroFile.write(str(totalMillis) + ", " + str(MSAltitude) +
-                               ", " + str(MSPressure) + ", " + str(MSTempC)+", 1\n")
+                baroFile.write(
+                    str(totalMillis)
+                    + ", "
+                    + str(MSAltitude)
+                    + ", "
+                    + str(MSPressure)
+                    + ", "
+                    + str(MSTempC)
+                    + ", 1\n"
+                )
                 baroFile.flush()
         # print("Altitude: "+str(MSAltitude)+"     Velocity: "+str(MSVelocity))
