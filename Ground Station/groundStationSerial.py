@@ -5,7 +5,7 @@ import os.path
 from os import path
 import time
 
-COMPort = "COM55"
+COMPort = "COM4"
 serialPort = serial.Serial(
     port=COMPort, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
 )
@@ -34,7 +34,7 @@ global gyroZ
 global tempC
 
 # Open log file
-os.chdir("FlightData")
+os.chdir("../FlightData")
 directory = "/data"
 # print(directory)
 dirCount = 1
@@ -220,9 +220,9 @@ while 1:
             totalMillis, MSAltitude, MSPressure, MSTempC, checkSum = unpack(
                 "LfffI", dataByte
             )
-            MSVelocity = round(
-                (MSAltitude - prevAlt) / (timeMs - time.time() * 1000), 2
-            )
+            # MSVelocity = round(
+            #     (MSAltitude - prevAlt) / (timeMs - time.time() * 1000), 2
+            # )
             timeMs = time.time() * 1000
             if checkSum == checkSum_calculated:
                 MSAltitude = round(MSAltitude, 2)

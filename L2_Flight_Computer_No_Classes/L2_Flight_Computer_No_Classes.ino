@@ -416,8 +416,8 @@ void Task2code( void * pvParameters ) {
           imuUnion.imuData.accZ = (acc.acceleration.z - accZoffset) * 100;
 
           imuUnion.imuData.gyroX = (gyr.gyro.x - gyroXoffset) * 100;
-          imuUnion.imuData.gyroY = (gyr.gyro.x - gyroYoffset) * 100;
-          imuUnion.imuData.gyroZ = (gyr.gyro.x - gyroZoffset) * 100;
+          imuUnion.imuData.gyroY = (gyr.gyro.y - gyroYoffset) * 100;
+          imuUnion.imuData.gyroZ = (gyr.gyro.z - gyroZoffset) * 100;
           imuUnion.imuData.tempC = temp.temperature * 100;
           xSemaphoreGive( xSemaphore );                             // Release semaphore
         }
@@ -428,8 +428,8 @@ void Task2code( void * pvParameters ) {
       dtostrf(((float)acc.acceleration.y - accYoffset), 4, 2, c);
       dtostrf(((float)acc.acceleration.z - accZoffset), 4, 2, d);
       dtostrf(((float)gyr.gyro.x - gyroXoffset), 4, 2, e);
-      dtostrf(((float)gyr.gyro.x - gyroYoffset), 4, 2, f);
-      dtostrf(((float)gyr.gyro.x - gyroZoffset), 4, 2, g);
+      dtostrf(((float)gyr.gyro.y - gyroYoffset), 4, 2, f);
+      dtostrf(((float)gyr.gyro.z - gyroZoffset), 4, 2, g);
       dtostrf(((float)temp.temperature), 4, 2, h);
 
       sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
