@@ -3,14 +3,6 @@
    Its purpose is to log data onto an SD card and transmit data to the ground.
 */
 
-#define DEBUG
-
-#ifdef DEBUG
-void dpln(char* msg) {
-  Serial.println(msg);
-}
-#endif
-
 /*  Library Declarations  */
 
 #include <Arduino_CRC32.h>
@@ -146,13 +138,9 @@ const int SERIAL1_RX = 34;
 const int SERIAL1_TX = 4;
 const int GPS_BAUD = 115200;
 
-float accXoffset = 0.723231;
-float accYoffset = -0.082033;
-float accZoffset = -0.022410;
-
-float gyroXoffset = -0.056866;
-float gyroYoffset = -0.016219;
-float gyroZoffset = -0.256082;
+float accXoffset = 0.0;
+float accYoffset = 0.0;
+float accZoffset = 0.0;
 
 SemaphoreHandle_t xSemaphore = NULL;
 
@@ -160,12 +148,11 @@ MS5611 ms5611;                                                   // Initalise MS
 
 void setup() {
 
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(LEDPin, OUTPUT);
   Wire.begin();
   Serial2.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  Serial1.begin(9600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
-  xSemaphore = xSemaphoreCreateMutex();             // Create semaphore to protect data while writing  
+  xSemaphore = xSemaphoreCreateMutex();             // Create semaphore to protect data while writing  Serial1.begin(9600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
   pinMode(irqPin, INPUT);
   
 
@@ -237,6 +224,7 @@ void Task1code( void * pvParameters ) {
 
       memset(IMUtransmittBuffer, 0, sizeof(IMUtransmittBuffer));
 
+
       if (newBaroData) {
         //        Serial.println("Sending RRC3 data");
         LoRa.beginPacket();
@@ -304,7 +292,7 @@ void Task1code( void * pvParameters ) {
         }
         memset(GPStransmittBuffer, 0, sizeof(GPStransmittBuffer));
       }
-      vTaskDelay(500);
+      vTaskDelay(50);
     }
   }
 }
@@ -320,20 +308,11 @@ void Task2code( void * pvParameters ) {
     errorBlink(1);
   }
 
-  dpln("Starting MS5611");
-  while (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    errorBlink(2);
-  }
-  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
-  mpu.setGyroRange(MPU6050_RANGE_1000_DEG);
-  
-  dpln("Starting MPU6050");
   while (!ms5611.begin(MS5611_ULTRA_HIGH_RES)) {
     Serial.println(F("Error connecting to barometer"));
     errorBlink(1);
   }
-  dpln("Creating file name");
+
   for (int i = 0; i < 100; i++) {
     if (SD.exists(dirname)) {
       dirname[strlen(dirname) - 3] = '\0';
@@ -379,6 +358,13 @@ void Task2code( void * pvParameters ) {
   GPSDataFile.println(GPSDataHead);
   GPSDataFile.flush();
 
+  while (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    errorBlink(2);
+  }
+  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
+  mpu.setGyroRange(MPU6050_RANGE_1000_DEG);
+
   //   Setup GPS
   Serial2.print( F("$PMTK251,115200*1F\r\n") );                         // set 115200 baud rate
   Serial2.flush();                                                      // wait for the command to go out
@@ -386,13 +372,13 @@ void Task2code( void * pvParameters ) {
   Serial2.end();                                                        // empty the input buffer, too
 
   Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);                  // use the new baud rate
-  Serial2.print( F(",1000*2$PMTK220F\r\n") );                            // set 10Hz update rate - First number is position fix interval in ms
+  Serial2.print( F("$PMTK220,1000*2F\r\n") );                            // set 1Hz update rate
 
 
 
   /********/
-//    delay(5000);
-//    calibrateMPU();                                                                                                                      // <------------ Delete before launch
+  //  delay(5000);
+  //  calibrateMPU();                                                                                                                      // <------------ Delete before launch
   /********/
 
   //    This is the Core 2 main loop
@@ -415,9 +401,9 @@ void Task2code( void * pvParameters ) {
           imuUnion.imuData.accY = (acc.acceleration.y - accYoffset) * 100;
           imuUnion.imuData.accZ = (acc.acceleration.z - accZoffset) * 100;
 
-          imuUnion.imuData.gyroX = (gyr.gyro.x - gyroXoffset) * 100;
-          imuUnion.imuData.gyroY = (gyr.gyro.y - gyroYoffset) * 100;
-          imuUnion.imuData.gyroZ = (gyr.gyro.z - gyroZoffset) * 100;
+          imuUnion.imuData.gyroX = gyr.gyro.x * 100;
+          imuUnion.imuData.gyroY = gyr.gyro.y * 100;
+          imuUnion.imuData.gyroZ = gyr.gyro.z * 100;
           imuUnion.imuData.tempC = temp.temperature * 100;
           xSemaphoreGive( xSemaphore );                             // Release semaphore
         }
@@ -427,91 +413,86 @@ void Task2code( void * pvParameters ) {
       dtostrf(((float)acc.acceleration.x - accXoffset), 4, 2, b);
       dtostrf(((float)acc.acceleration.y - accYoffset), 4, 2, c);
       dtostrf(((float)acc.acceleration.z - accZoffset), 4, 2, d);
-      dtostrf(((float)gyr.gyro.x - gyroXoffset), 4, 2, e);
-      dtostrf(((float)gyr.gyro.y - gyroYoffset), 4, 2, f);
-      dtostrf(((float)gyr.gyro.z - gyroZoffset), 4, 2, g);
+      dtostrf(((float)gyr.gyro.x), 4, 2, e);
+      dtostrf(((float)gyr.gyro.y), 4, 2, f);
+      dtostrf(((float)gyr.gyro.z), 4, 2, g);
       dtostrf(((float)temp.temperature), 4, 2, h);
 
       sprintf(imuArray, "%s,%s,%s,%s,%s,%s,%s,%s", a, b, c, d, e, f, g, h);     //  Convert to character array
 
       //  Write imu data to SD
-//      dpln(imuArray);
+      //      Serial.println(imuArray);
       IMUDataFile.println(imuArray);
 
       // *************************************************************************  Barometer *********************************************************************************
-      char RRC3_Data[100];
+      char RRC3_Data[30];
 
       static byte ndx = 0;                    // Read binary uart data into buffer -> RRC3_Data
       if (Serial1.available() > 0) {
         while (Serial1.available() > 0) {
           char inByte = Serial1.read();
-            // Serial.print(inByte);
           if (inByte != '\n') {
             newBaroData = true;
             RRC3_Data[ndx] = inByte;
             ndx++;
           }
-          else break;
         }
       }
       ndx = 0;
       if (newBaroData) {
-        // RRC3baroData.totalMillis = millis();
-        // int i = 0;
-        // while (RRC3_Data[i] != 0x2C) {    // Discard first packet
-        //   i++;
-        // }
-        // char buff[20];
-        // while (RRC3_Data[i] != 0x2C) {    // Extract altitude data
-        //   buff[i] = RRC3_Data[i];
-        //   i++;
-        // }
-        // RRC3baroData.altitude = float(atof(buff));
-        // memset(buff, 0, sizeof(buff));
+        RRC3baroData.totalMillis = millis();
+        int i = 0;
+        while (RRC3_Data[i] != 0x2C) {    // Discard first packet
+          i++;
+        }
+        char buff[20];
+        while (RRC3_Data[i] != 0x2C) {    // Extract altitude data
+          buff[i] = RRC3_Data[i];
+          i++;
+        }
+        RRC3baroData.altitude = float(atof(buff));
+        memset(buff, 0, sizeof(buff));
 
-        // while (RRC3_Data[i] != 0x2C) {    // Extract velocity data
-        //   buff[i] = RRC3_Data[i];
-        //   i++;
-        // }
-        // RRC3baroData.velocity = float(atof(buff));
-        // memset(buff, 0, sizeof(buff));
+        while (RRC3_Data[i] != 0x2C) {    // Extract velocity data
+          buff[i] = RRC3_Data[i];
+          i++;
+        }
+        RRC3baroData.velocity = float(atof(buff));
+        memset(buff, 0, sizeof(buff));
 
-        // while (RRC3_Data[i] != 0x2C) {    // Extract temperature data
-        //   buff[i] = RRC3_Data[i];
-        //   i++;
-        // }
-        // RRC3baroData.tempF = float(atof(buff));
-        // memset(buff, 0, sizeof(buff));
+        while (RRC3_Data[i] != 0x2C) {    // Extract temperature data
+          buff[i] = RRC3_Data[i];
+          i++;
+        }
+        RRC3baroData.tempF = float(atof(buff));
+        memset(buff, 0, sizeof(buff));
 
-        // while (RRC3_Data[i] != 0x2C) {
-        //   buff[i] = RRC3_Data[i];
-        //   i++;
-        // }
-        // strcpy(RRC3baroData.event, buff);
-        // memset(buff, 0, sizeof(buff));
+        while (RRC3_Data[i] != 0x2C) {
+          buff[i] = RRC3_Data[i];
+          i++;
+        }
+        strcpy(RRC3baroData.event, buff);
+        memset(buff, 0, sizeof(buff));
 
-        // while (RRC3_Data[i] != 0x2C) {
-        //   buff[i] = RRC3_Data[i];
-        //   i++;
-        // }
-        // RRC3baroData.battVolt = float(atof(buff));
-        // memset(buff, 0, sizeof(buff));
+        while (RRC3_Data[i] != 0x2C) {
+          buff[i] = RRC3_Data[i];
+          i++;
+        }
+        RRC3baroData.battVolt = float(atof(buff));
+        memset(buff, 0, sizeof(buff));
 
         // Write to SD card
-        char print_data[100];
-        sprintf(print_data, "%lu,%lu,%s", millis(), micros(), RRC3_Data);
-        RRC3baroFile.println(print_data);
-        // Serial.println(print_data);
         memset(RRC3_Data, 0, sizeof(RRC3_Data));          //  Empty data array
-        newBaroData = false;
+        //Serial.println(RRC3_Data);
+        RRC3baroFile.println(RRC3_Data);
       }
-      
+      newBaroData = false;
 
       if (Serial2.available() > 0) {
         while (Serial2.available() > 0) {
           char b = Serial2.read();
           gps.encode(b);
-          // Serial.print(b);
+          //Serial.print(b);
           if (gps.location.isValid()) {
             if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE )
             {
@@ -546,7 +527,7 @@ void Task2code( void * pvParameters ) {
         dtostrf(((float)gps.speed.mps()) / 100, 6, 2, sm);
         memset(GPSArray, 0, sizeof(GPS_Data));
         sprintf(GPSArray, "%s,%s,%s,%s,%s,%s,%s", lt, ln, al, ts, ns, hd, sm);    //  Convert to character array
-        dpln(GPSArray);
+        //        Serial.println(GPSArray);
         GPSDataFile.println(GPSArray);
 
       }
@@ -638,34 +619,18 @@ void calibrateMPU() {
   double accelXAvg = 0;
   double accelYAvg = 0;
   double accelZAvg = 0;
-  double gyroXAvg = 0;
-  double gyroYAvg = 0;
-  double gyroZAvg = 0;
 
-  int num_sum = 500;
-  Serial.println("*************** STARTING CALIBRATION ROUTING ***************");
-  for (int i = 0; i < num_sum; i++) {
+  for (int i = 0; i < 10; i++) {
     sensors_event_t acc, gyr, temp;
     mpu.getEvent(&acc, &gyr, &temp);
     accelXAvg += acc.acceleration.x;
     accelYAvg += acc.acceleration.y;
     accelZAvg += acc.acceleration.z;
-    gyroXAvg += gyr.gyro.x;
-    gyroYAvg += gyr.gyro.y;
-    gyroZAvg += gyr.gyro.z;
   }
-  accXoffset = accelXAvg / num_sum;
-  accYoffset = accelYAvg / num_sum;
-  accZoffset = accelZAvg / num_sum;
-  gyroXoffset = gyroXAvg / num_sum;
-  gyroYoffset = gyroYAvg / num_sum;
-  gyroZoffset = gyroZAvg / num_sum;
-  
-  Serial.printf("X acceleraton offset: %0.6f\r\n", accXoffset);
-  Serial.printf("Y acceleraton offset: %0.6f\r\n", accYoffset);
-  Serial.printf("Z acceleraton offset: %0.6f\r\n", accZoffset);
-
-  Serial.printf("X gyro offset: %0.6f\r\n", gyroXoffset);
-  Serial.printf("Y gyro offset: %0.6f\r\n", gyroYoffset);
-  Serial.printf("Z gyro offset: %0.6f\r\n", gyroZoffset);
+  accXoffset = accelXAvg / 200;
+  accYoffset = accelYAvg / 200;
+  accZoffset = accelZAvg / 200;
+  Serial.println(accXoffset);
+  Serial.println(accYoffset);
+  Serial.println(accZoffset);
 }

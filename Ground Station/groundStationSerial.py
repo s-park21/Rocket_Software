@@ -5,7 +5,7 @@ import os.path
 from os import path
 import time
 
-COMPort = "COM4"
+COMPort = "COM9"
 serialPort = serial.Serial(
     port=COMPort, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
 )
@@ -34,7 +34,7 @@ global gyroZ
 global tempC
 
 # Open log file
-os.chdir("../FlightData")
+os.chdir("FlightData")
 directory = "/data"
 # print(directory)
 dirCount = 1
@@ -143,17 +143,9 @@ while 1:
             # print(dataByte)
 
             checkSum_calculated = zlib.crc32(dataByte[0:32])
-            (
-                totalMillis,
-                accX,
-                accY,
-                accZ,
-                gyroX,
-                gyroY,
-                gyroZ,
-                tempC,
-                checkSum,
-            ) = unpack("LiiiiiiiI", dataByte)
+            totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = (
+                unpack("LiiiiiiiI", dataByte)
+            )
             if checkSum_calculated == checkSum:
                 accX = round(accX / 100, 2)
                 accY = round(accY / 100, 2)
@@ -183,7 +175,23 @@ while 1:
                 imuFile.write(str(imuString))
                 imuFile.flush()
                 # print(dataByte[8:12].hex(),", ",checkSum)
-                # print(totalMillis, " ", accX, " ", accY, " ", accZ, " ", gyroX, " ", gyroY, " ", gyroZ, " ", tempC)
+                print(
+                    totalMillis,
+                    " ",
+                    accX,
+                    " ",
+                    accY,
+                    " ",
+                    accZ,
+                    " ",
+                    gyroX,
+                    " ",
+                    gyroY,
+                    " ",
+                    gyroZ,
+                    " ",
+                    tempC,
+                )
 
                 # Incoming packets appear to be correct therefore the problems with the imu data must be arising from the unpacking of the data
 
@@ -220,9 +228,9 @@ while 1:
             totalMillis, MSAltitude, MSPressure, MSTempC, checkSum = unpack(
                 "LfffI", dataByte
             )
-            # MSVelocity = round(
-            #     (MSAltitude - prevAlt) / (timeMs - time.time() * 1000), 2
-            # )
+            MSVelocity = round(
+                (MSAltitude - prevAlt) / (timeMs - time.time() * 1000), 2
+            )
             timeMs = time.time() * 1000
             if checkSum == checkSum_calculated:
                 MSAltitude = round(MSAltitude, 2)
