@@ -148,7 +148,7 @@ while 1:
             try:
                 dataByte = serialPort.read(36)
                 # print(dataByte)
-                # print("Reading 36 bytes")
+
                 checkSum_calculated = zlib.crc32(dataByte[0:32])
                 totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = (
                     unpack("=LiiiiiiiI", dataByte)
