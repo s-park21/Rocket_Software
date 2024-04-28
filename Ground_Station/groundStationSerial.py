@@ -5,8 +5,12 @@ import os.path
 from os import path
 import time
 
+<<<<<<< HEAD
 # COMPort = "COM9"
 COMPort = "/dev/ttyACM0"
+=======
+COMPort = "COM9"
+>>>>>>> refs/remotes/origin/main
 serialPort = serial.Serial(
     port=COMPort, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
 )
@@ -73,6 +77,7 @@ while 1:
             dataByte = serialPort.read(30)
 
         elif header == b"\x06":
+<<<<<<< HEAD
             dataByte = serialPort.read(36)
             # print(dataByte.hex())
             checkSum_calculated = zlib.crc32(dataByte[0:32])
@@ -112,6 +117,52 @@ while 1:
                 GPSFile.write(GPSString)
                 GPSFile.flush()
                 print(str(GPSString))
+=======
+            try:
+                dataByte = serialPort.read(36)
+                # print(dataByte.hex())
+                checkSum_calculated = zlib.crc32(dataByte[0:32])
+                (
+                    totalMillis,
+                    latt,
+                    longi,
+                    alt,
+                    tStamp,
+                    speedMps,
+                    heading,
+                    numSat,
+                    checkSum,
+                ) = unpack("LlliLiiiI", dataByte)
+                if checkSum_calculated == checkSum:
+                    latt = latt / 1000000
+                    longi = longi / 1000000
+                    speedMps = round(speedMps / 100, 2)
+                    GPSString = (
+                        str(totalMillis)
+                        + ", "
+                        + str(latt)
+                        + ", "
+                        + str(longi)
+                        + ", "
+                        + str(alt)
+                        + ", "
+                        + str(tStamp)
+                        + ", "
+                        + str(speedMps)
+                        + ", "
+                        + str(heading)
+                        + ", "
+                        + str(numSat)
+                        + ", 0\n"
+                    )
+                    GPSFile.write(GPSString)
+                    GPSFile.flush()
+                    print(str(GPSString))
+            except ValueError as ve:
+                print("ValueError occurred:", ve)
+            except Exception as e:
+                print("An error occurred:", e)
+>>>>>>> refs/remotes/origin/main
             else:
                 print("GPS packet error")  # Write to log file
                 GPSString = (
@@ -140,6 +191,7 @@ while 1:
             # print(dataByte.hex())
 
         elif header == b"\x05":
+<<<<<<< HEAD
             dataByte = serialPort.read(36)
             # print(dataByte)
 
@@ -194,6 +246,66 @@ while 1:
                     tempC,
                 )
 
+=======
+            try:
+                dataByte = serialPort.read(36)
+                # print(dataByte)
+
+                checkSum_calculated = zlib.crc32(dataByte[0:32])
+                totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = (
+                    unpack("LiiiiiiiI", dataByte)
+                )
+                if checkSum_calculated == checkSum:
+                    accX = round(accX / 100, 2)
+                    accY = round(accY / 100, 2)
+                    accZ = round(accZ / 100, 2)
+                    gyroX = round(gyroX / 100, 2)
+                    gyroY = round(gyroY / 100, 2)
+                    gyroZ = round(gyroZ / 100, 2)
+                    tempC = round(tempC / 100, 2)
+                    imuString = (
+                        str(totalMillis)
+                        + ", "
+                        + str(accX)
+                        + ", "
+                        + str(accY)
+                        + ", "
+                        + str(accZ)
+                        + ", "
+                        + str(gyroX)
+                        + ", "
+                        + str(gyroY)
+                        + ", "
+                        + str(gyroZ)
+                        + ", "
+                        + str(tempC)
+                        + ", 0\n"
+                    )
+                    imuFile.write(str(imuString))
+                    imuFile.flush()
+                    # print(dataByte[8:12].hex(),", ",checkSum)
+                    print(
+                        totalMillis,
+                        " ",
+                        accX,
+                        " ",
+                        accY,
+                        " ",
+                        accZ,
+                        " ",
+                        gyroX,
+                        " ",
+                        gyroY,
+                        " ",
+                        gyroZ,
+                        " ",
+                        tempC,
+                    )
+            except ValueError as ve:
+                print("ValueError occurred:", ve)
+            except Exception as e:
+                print("An error occurred:", e)
+>>>>>>> refs/remotes/origin/main
                 # Incoming packets appear to be correct therefore the problems with the imu data must be arising from the unpacking of the data
 
             else:
@@ -220,6 +332,7 @@ while 1:
                 imuFile.flush()
 
         elif header == b"\x04":
+<<<<<<< HEAD
             # Barometer data
             dataByte = serialPort.read(20)
             checkSum_calculated = zlib.crc32(dataByte[0:16])
@@ -261,4 +374,52 @@ while 1:
                     + ", 1\n"
                 )
                 baroFile.flush()
+=======
+            try:
+                # Barometer data
+                dataByte = serialPort.read(20)
+                checkSum_calculated = zlib.crc32(dataByte[0:16])
+                global MSPressure
+                global MSTempC
+                prevAlt = MSAltitude
+                totalMillis, MSAltitude, MSPressure, MSTempC, checkSum = unpack(
+                    "LfffI", dataByte
+                )
+                MSVelocity = round(
+                    (MSAltitude - prevAlt) / (timeMs - time.time() * 1000), 2
+                )
+                timeMs = time.time() * 1000
+                if checkSum == checkSum_calculated:
+                    MSAltitude = round(MSAltitude, 2)
+                    MSPressure = round(MSPressure, 0)
+                    MSTempC = round(MSTempC, 2)
+                    baroFile.write(
+                        str(totalMillis)
+                        + ", "
+                        + str(MSAltitude)
+                        + ", "
+                        + str(MSPressure)
+                        + ", "
+                        + str(MSTempC)
+                        + ", 0\n"
+                    )
+                    baroFile.flush()
+                else:
+                    print("baro packet error")
+                    baroFile.write(
+                        str(totalMillis)
+                        + ", "
+                        + str(MSAltitude)
+                        + ", "
+                        + str(MSPressure)
+                        + ", "
+                        + str(MSTempC)
+                        + ", 1\n"
+                    )
+                    baroFile.flush()
+            except ValueError as ve:
+                print("ValueError occurred:", ve)
+            except Exception as e:
+                print("An error occurred:", e)
+>>>>>>> refs/remotes/origin/main
         # print("Altitude: "+str(MSAltitude)+"     Velocity: "+str(MSVelocity))
