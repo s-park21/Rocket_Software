@@ -5,7 +5,8 @@ import os.path
 from os import path
 import time
 
-COMPort = "COM9"
+# COMPort = "COM9"
+COMPort = "/dev/ttyACM0"
 serialPort = serial.Serial(
     port=COMPort, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
 )
@@ -86,11 +87,11 @@ while 1:
                     heading,
                     numSat,
                     checkSum,
-                ) = unpack("LlliLiiiI", dataByte)
+                ) = unpack("=LlliLiiiI", dataByte)
+                latt = latt / 1000000
+                longi = longi / 1000000
+                speedMps = round(speedMps / 100, 2)
                 if checkSum_calculated == checkSum:
-                    latt = latt / 1000000
-                    longi = longi / 1000000
-                    speedMps = round(speedMps / 100, 2)
                     GPSString = (
                         str(totalMillis)
                         + ", "
@@ -111,46 +112,46 @@ while 1:
                     )
                     GPSFile.write(GPSString)
                     GPSFile.flush()
-                    print(str(GPSString))
+                    # print(str(GPSString))
+                else:
+                    # print("GPS packet error")  # Write to log file
+                    GPSString = (
+                        str(totalMillis)
+                        + ", "
+                        + str(latt)
+                        + ", "
+                        + str(longi)
+                        + ", "
+                        + str(alt)
+                        + ", "
+                        + str(tStamp)
+                        + ", "
+                        + str(speedMps)
+                        + ", "
+                        + str(heading)
+                        + ", "
+                        + str(numSat)
+                        + ", 1\n"
+                    )
+                    GPSFile.write(GPSString)
+                    GPSFile.flush()
+                # print(hex(checkSum_calculated), ", ",hex(checkSum))
+
+                print(latt, " ", longi, " ", alt)
+                # print(dataByte.hex())
             except ValueError as ve:
                 print("ValueError occurred:", ve)
             except Exception as e:
                 print("An error occurred:", e)
-            else:
-                print("GPS packet error")  # Write to log file
-                GPSString = (
-                    str(totalMillis)
-                    + ", "
-                    + str(latt)
-                    + ", "
-                    + str(longi)
-                    + ", "
-                    + str(alt)
-                    + ", "
-                    + str(tStamp)
-                    + ", "
-                    + str(speedMps)
-                    + ", "
-                    + str(heading)
-                    + ", "
-                    + str(numSat)
-                    + ", 1\n"
-                )
-                GPSFile.write(GPSString)
-                GPSFile.flush()
-                # print(hex(checkSum_calculated), ", ",hex(checkSum))
-
-            # print(latt, " ", longi, " ", alt)
-            # print(dataByte.hex())
 
         elif header == b"\x05":
             try:
                 dataByte = serialPort.read(36)
                 # print(dataByte)
-
+                # print("Reading 36 bytes")
                 checkSum_calculated = zlib.crc32(dataByte[0:32])
                 totalMillis, accX, accY, accZ, gyroX, gyroY, gyroZ, tempC, checkSum = (
-                    unpack("LiiiiiiiI", dataByte)
+                    unpack("=LiiiiiiiI", dataByte)
                 )
                 if checkSum_calculated == checkSum:
                     accX = round(accX / 100, 2)
@@ -181,62 +182,63 @@ while 1:
                     imuFile.write(str(imuString))
                     imuFile.flush()
                     # print(dataByte[8:12].hex(),", ",checkSum)
-                    print(
-                        totalMillis,
-                        " ",
-                        accX,
-                        " ",
-                        accY,
-                        " ",
-                        accZ,
-                        " ",
-                        gyroX,
-                        " ",
-                        gyroY,
-                        " ",
-                        gyroZ,
-                        " ",
-                        tempC,
+                    # print(
+                    #     totalMillis,
+                    #     " ",
+                    #     accX,
+                    #     " ",
+                    #     accY,
+                    #     " ",
+                    #     accZ,
+                    #     " ",
+                    #     gyroX,
+                    #     " ",
+                    #     gyroY,
+                    #     " ",
+                    #     gyroZ,
+                    #     " ",
+                    #     tempC,
+                    # )
+                else:
+                    # print("IMU packet error")  # Write bad packets to log file
+                    imuString = (
+                        str(totalMillis)
+                        + ", "
+                        + str(accX)
+                        + ", "
+                        + str(accY)
+                        + ", "
+                        + str(accZ)
+                        + ", "
+                        + str(gyroX)
+                        + ", "
+                        + str(gyroY)
+                        + ", "
+                        + str(gyroZ)
+                        + ", "
+                        + str(tempC)
+                        + ", 1\n"
                     )
+                    imuFile.write(str(imuString))
+                    imuFile.flush()
+                    
             except ValueError as ve:
                 print("ValueError occurred:", ve)
             except Exception as e:
                 print("An error occurred:", e)
                 # Incoming packets appear to be correct therefore the problems with the imu data must be arising from the unpacking of the data
 
-            else:
-                print("IMU packet error")  # Write bad packets to log file
-                imuString = (
-                    str(totalMillis)
-                    + ", "
-                    + str(accX)
-                    + ", "
-                    + str(accY)
-                    + ", "
-                    + str(accZ)
-                    + ", "
-                    + str(gyroX)
-                    + ", "
-                    + str(gyroY)
-                    + ", "
-                    + str(gyroZ)
-                    + ", "
-                    + str(tempC)
-                    + ", 1\n"
-                )
-                imuFile.write(str(imuString))
-                imuFile.flush()
-
         elif header == b"\x04":
             try:
                 # Barometer data
                 dataByte = serialPort.read(20)
+                # print("Reading 20 bytes")
                 checkSum_calculated = zlib.crc32(dataByte[0:16])
                 global MSPressure
                 global MSTempC
                 prevAlt = MSAltitude
                 totalMillis, MSAltitude, MSPressure, MSTempC, checkSum = unpack(
-                    "LfffI", dataByte
+                    "=LfffI", dataByte
                 )
                 MSVelocity = round(
                     (MSAltitude - prevAlt) / (timeMs - time.time() * 1000), 2
@@ -258,7 +260,7 @@ while 1:
                     )
                     baroFile.flush()
                 else:
-                    print("baro packet error")
+                    # print("baro packet error")
                     baroFile.write(
                         str(totalMillis)
                         + ", "
