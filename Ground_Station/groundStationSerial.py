@@ -137,7 +137,7 @@ while 1:
                     GPSFile.flush()
                 # print(hex(checkSum_calculated), ", ",hex(checkSum))
 
-                print(latt, " ", longi, " ", alt)
+                print("Lat: ",latt, " Lng:", longi, " Alt:", alt, " Numsat", numSat)
                 # print(dataByte.hex())
             except ValueError as ve:
                 print("ValueError occurred:", ve)
@@ -181,6 +181,7 @@ while 1:
                     )
                     imuFile.write(str(imuString))
                     imuFile.flush()
+                    # print(imuString)
                     # print(dataByte[8:12].hex(),", ",checkSum)
                     # print(
                     #     totalMillis,

@@ -138,9 +138,9 @@ const int SERIAL1_RX = 34;
 const int SERIAL1_TX = 4;
 const int GPS_BAUD = 115200;
 
-float accXoffset = 0.0;
-float accYoffset = 0.0;
-float accZoffset = 0.0;
+float accXoffset = 0.1532295;
+float accYoffset = -0.096965;
+float accZoffset = -1.373075;
 
 SemaphoreHandle_t xSemaphore = NULL;
 
@@ -292,7 +292,7 @@ void Task1code( void * pvParameters ) {
         }
         memset(GPStransmittBuffer, 0, sizeof(GPStransmittBuffer));
       }
-      vTaskDelay(50);
+      vTaskDelay(200);
     }
   }
 }
