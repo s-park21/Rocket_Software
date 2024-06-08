@@ -202,29 +202,29 @@ void Task1code( void * pvParameters ) {
   for (;;) {
     while (launchProceedure) {
       //    Transmit data to ground
-      uint32_t imuChecksum = 0;
-      byte IMUtransmittBuffer[sizeof(imuUnion.imuByteArray)];
-      if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
-        for (int i = 0; i < sizeof(imuUnion.imuByteArray); i++) {             // Take semaphore and copy protected memory into temporary buffer
-          IMUtransmittBuffer[i] = imuUnion.imuByteArray[i];
-        }
-        xSemaphoreGive( xSemaphore );
-      }
-      //      Serial.println("Sending IMU data");
-      LoRa.beginPacket();
-      LoRa.write(0x5);
-      imuChecksum = crc32.calc((uint8_t*)&IMUtransmittBuffer, sizeof(IMUtransmittBuffer));
-      LoRa.write((uint8_t*)&IMUtransmittBuffer, sizeof(IMUtransmittBuffer));
-      // Send 32bit CRC
-      LoRa.write(imuChecksum);
-      LoRa.write((imuChecksum >> 8) & 0xFF);
-      LoRa.write((imuChecksum >> 16) & 0xFF);
-      LoRa.write((imuChecksum >> 24) & 0xFF);
-      LoRa.endPacket(false);
-
-      memset(IMUtransmittBuffer, 0, sizeof(IMUtransmittBuffer));
-
-
+//      uint32_t imuChecksum = 0;
+//      byte IMUtransmittBuffer[sizeof(imuUnion.imuByteArray)];
+//      if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 1000 ) == pdTRUE ) {
+//        for (int i = 0; i < sizeof(imuUnion.imuByteArray); i++) {             // Take semaphore and copy protected memory into temporary buffer
+//          IMUtransmittBuffer[i] = imuUnion.imuByteArray[i];
+//        }
+//        xSemaphoreGive( xSemaphore );
+//      }
+//      //      Serial.println("Sending IMU data");
+//      LoRa.beginPacket();
+//      LoRa.write(0x5);
+//      imuChecksum = crc32.calc((uint8_t*)&IMUtransmittBuffer, sizeof(IMUtransmittBuffer));
+//      LoRa.write((uint8_t*)&IMUtransmittBuffer, sizeof(IMUtransmittBuffer));
+//      // Send 32bit CRC
+//      LoRa.write(imuChecksum);
+//      LoRa.write((imuChecksum >> 8) & 0xFF);
+//      LoRa.write((imuChecksum >> 16) & 0xFF);
+//      LoRa.write((imuChecksum >> 24) & 0xFF);
+//      LoRa.endPacket(false);
+//
+//      memset(IMUtransmittBuffer, 0, sizeof(IMUtransmittBuffer));
+//
+//
       if (newBaroData) {
         //        Serial.println("Sending RRC3 data");
         LoRa.beginPacket();
@@ -239,7 +239,7 @@ void Task1code( void * pvParameters ) {
       byte MStransmittBuffer[sizeof(MSBaroUnion.MSbaroByteArray)];
       if (newMSBaroData) {
         //        Serial.println("Sending baro data");
-        if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
+        if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 1000 ) == pdTRUE ) {
           for (int i = 0; i < sizeof(MSBaroUnion.MSbaroByteArray); i++) {             // Take semaphore and copy protected memory into temporary buffer
             MStransmittBuffer[i] = MSBaroUnion.MSbaroByteArray[i];
           }
@@ -269,7 +269,7 @@ void Task1code( void * pvParameters ) {
       byte GPStransmittBuffer[sizeof(GPSUnion.GPSByteArray)];
       if (true /*sendGPS*/) {     // Allow resending of GPS packets so that missed packets can be resent
         //        Serial.println("Sending GPS data");
-        if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
+        if ( xSemaphoreTake( xSemaphore, ( TickType_t ) 1000 ) == pdTRUE ) {
           for (int i = 0; i < sizeof(GPSUnion.GPSByteArray); i++) {             // Take semaphore and copy protected memory into temporary buffer
             GPStransmittBuffer[i] = GPSUnion.GPSByteArray[i];
           }
@@ -292,7 +292,7 @@ void Task1code( void * pvParameters ) {
         }
         memset(GPStransmittBuffer, 0, sizeof(GPStransmittBuffer));
       }
-      vTaskDelay(200);
+      vTaskDelay(1000);
     }
   }
 }
